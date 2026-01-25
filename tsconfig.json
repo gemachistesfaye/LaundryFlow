@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "target": "ES6",
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+, "components/auth/demo-credentials.jsx", "components/auth/login-form.jsx", "app/page.jsx", "components/dashboard/coordinator/assignment-panel.jsx", "components/dashboard/coordinator/audit-logs.jsx", "components/dashboard/coordinator/order-approval-panel.jsx", "components/dashboard/coordinator/notifications-panel.jsx", "components/dashboard/coordinator/coordinator-dashboard.jsx", "components/dashboard/admin/admin-dashboard.jsx", "components/dashboard/admin/analytics-overview.jsx", "components/dashboard/admin/financial-reports.jsx", "components/dashboard/admin/order-management.jsx", "components/dashboard/admin/system-settings.jsx", "components/dashboard/admin/user-management.jsx", "components/dashboard/deliverer/deliverer-dashboard.jsx", "components/dashboard/deliverer/delivery-tasks-list.jsx", "app/dashboard/deliverer-one/page.jsx", "components/auth/register-form.jsx", "components/dashboard/student/create-order-modal.jsx", "app/dashboard/student/page.jsx", "components/dashboard/student/orders-list.jsx", "components/dashboard/student/student-dashboard.jsx", "components/dashboard/student/order-details-modal.jsx", "components/layout/navbar.jsx", "app/dashboard/admin/page.jsx", "app/dashboard/coordinator/page.jsx", "app/api/auth/register/route.js", "app/api/auth/login/route.js"  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
