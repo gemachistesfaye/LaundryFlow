@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getMyOrders, createOrder, getMyPayments, createPayment } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/DashboardLayout';
 
 const StatusBadge = ({ status }) => {
   const colors = {
@@ -79,17 +80,8 @@ const StudentDashboard = () => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
-      {/* Navbar */}
-      <nav style={{ background: '#fff', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: '#667eea' }}>🧺 LaundryFlow</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 14, color: '#555' }}>👤 {user?.full_name} <span style={{ background: '#667eea', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>Student</span></span>
-          <button onClick={handleLogout} style={{ background: '#ff4757', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Logout</button>
-        </div>
-      </nav>
-
-      <main style={{ maxWidth: 1000, margin: '24px auto', padding: '0 16px' }}>
+    <DashboardLayout title="Student Dashboard">
+      <main className="max-w-5xl mx-auto">
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
           <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -230,7 +222,8 @@ const StudentDashboard = () => {
           </div>
         </div>
       )}
-    </div>
+      </main>
+    </DashboardLayout>
   );
 };
 

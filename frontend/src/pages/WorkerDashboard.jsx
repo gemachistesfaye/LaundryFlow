@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getWorkerOrders, updateOrderStatus } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/DashboardLayout';
 
 const WorkerDashboard = () => {
   const { user, logout } = useAuth();
@@ -34,14 +35,7 @@ const WorkerDashboard = () => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
-      <nav style={{ background: '#fff', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: '#e17055' }}>🧑‍🏭 Worker Panel</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 14, color: '#555' }}>👤 {user?.full_name} <span style={{ background: '#e17055', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>Worker</span></span>
-          <button onClick={handleLogout} style={{ background: '#ff4757', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Logout</button>
-        </div>
-      </nav>
+    <DashboardLayout title="Worker Panel">
 
       <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Assigned Laundry Tasks ({orders.length})</h2>
@@ -75,7 +69,7 @@ const WorkerDashboard = () => {
           })
         }
       </main>
-    </div>
+    </DashboardLayout>
   );
 };
 

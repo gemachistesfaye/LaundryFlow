@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getDeliveryTasks, acceptDeliveryTask, completeDelivery } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/DashboardLayout';
 
 const DelivererDashboard = () => {
   const { user, logout } = useAuth();
@@ -32,14 +33,7 @@ const DelivererDashboard = () => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
-      <nav style={{ background: '#fff', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0984e3' }}>🚚 Deliverer Panel</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 14, color: '#555' }}>👤 {user?.full_name} <span style={{ background: '#0984e3', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>Deliverer</span></span>
-          <button onClick={handleLogout} style={{ background: '#ff4757', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Logout</button>
-        </div>
-      </nav>
+    <DashboardLayout title="Deliverer Panel">
 
       <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Delivery Tasks ({tasks.length})</h2>
@@ -72,7 +66,7 @@ const DelivererDashboard = () => {
           ))
         }
       </main>
-    </div>
+    </DashboardLayout>
   );
 };
 

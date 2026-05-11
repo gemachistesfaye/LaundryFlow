@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker, getAllPayments, confirmPayment } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../components/DashboardLayout';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -72,14 +73,7 @@ const AdminDashboard = () => {
   const tabs = ['analytics', 'orders', 'users', 'payments'];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
-      <nav style={{ background: '#1a1a2e', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>🛡️ Admin Dashboard</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 14, color: '#ccc' }}>👤 {user?.full_name}</span>
-          <button onClick={handleLogout} style={{ background: '#ff4757', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Logout</button>
-        </div>
-      </nav>
+    <DashboardLayout title="Admin Overview">
 
       {/* Tab Navigation */}
       <div style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid #eee', display: 'flex', gap: 0 }}>
@@ -251,7 +245,7 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 };
 
