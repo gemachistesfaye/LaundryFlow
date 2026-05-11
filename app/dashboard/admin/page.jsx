@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import AdminDashboard from "@/components/dashboard/admin/admin-dashboard";
+import { AdminDashboard } from "@/components/dashboard/admin/admin-dashboard";
 
 export default function AdminPage() {
   const [user, setUser] = useState(null);

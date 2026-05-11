@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import WorkerDashboard from "@/components/dashboard/worker/worker-dashboard"
+import { DelivererDashboard } from "@/components/dashboard/deliverer/deliverer-dashboard"
 
 export default function WorkerOnePage() {
   const [user, setUser] = useState(null)
@@ -20,5 +20,5 @@ export default function WorkerOnePage() {
   }, [router])
 
   if (!user) return null
-  return <WorkerDashboard user={user} />
+  return <DelivererDashboard user={user} />
 }

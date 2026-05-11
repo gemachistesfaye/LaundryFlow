@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import CoordinatorDashboard from "@/components/dashboard/coordinator/coordinator-dashboard"
+import { CoordinatorDashboard } from "@/components/dashboard/coordinator/coordinator-dashboard"
 
 export default function CoordinatorPage() {
   const [user, setUser] = useState(null)

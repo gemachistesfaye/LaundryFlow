@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import WorkerDashboard from "@/components/dashboard/worker/worker-dashboard"
+import { WorkerDashboard } from "@/components/dashboard/worker/worker-dashboard"
 
 export default function WorkerOnePage() {
   const [user, setUser] = useState(null)

@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/layout/navbar"
-import StudentDashboard from "@/components/dashboard/student/student-dashboard"
+import { StudentDashboard } from "@/components/dashboard/student/student-dashboard"
 import { CreateOrderModal } from "@/components/dashboard/student/create-order-modal"
 
 export default function StudentPage() {
