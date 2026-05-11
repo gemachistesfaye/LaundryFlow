@@ -13,12 +13,15 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/orders', require('./routes/orders'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/laundry', require('./routes/laundry'));
+app.use('/api/delivery', require('./routes/delivery'));
 
+// Health check
 app.get('/', (req, res) => {
-  res.json({ message: "Welcome to Smart Wash Hub API" });
+  res.json({ message: 'Smart Wash Hub API is running', version: '1.0.0' });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

@@ -1,58 +1,36 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API = axios.create({ baseURL: 'http://localhost:5000/api' });
 
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+// Attach JWT token to every request
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
 });
 
-// Add a request interceptor to include the JWT token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// ---- AUTH ----
+export const login = (data) => API.post('/auth/login', data);
+export const register = (data) => API.post('/auth/register', data);
+export const getMe = () => API.get('/auth/me');
 
-export const authService = {
-  login: async (email, password) => {
-    const response = await api.post('/auth/login', { email, password });
-    if (response.data.success) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-    }
-    return response.data;
-  },
-  register: async (userData) => {
-    const response = await api.post('/auth/register', userData);
-    return response.data;
-  },
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-  }
-};
+// ---- STUDENT: LAUNDRY ----
+export const createOrder = (data) => API.post('/laundry/create', data);
+export const getMyOrders = () => API.get('/laundry/my-orders');
 
-export const orderService = {
-  create: async (orderData) => {
-    const response = await api.post('/orders/create', orderData);
-    return response.data;
-  },
-  getMyOrders: async (userId) => {
-    const response = await api.get(`/orders/my-orders/${userId}`);
-    return response.data;
-  },
-  updateStatus: async (updateData) => {
-    const response = await api.post('/orders/update-status', updateData);
-    return response.data;
-  }
-};
+// ---- WORKER ----
+export const getWorkerOrders = () => API.get('/laundry/worker-orders');
+export const updateOrderStatus = (data) => API.put('/laundry/update-status', data);
 
-export default api;
+// ---- DELIVERER ----
+export const getDeliveryTasks = () => API.get('/delivery/tasks');
+export const acceptDeliveryTask = (data) => API.put('/delivery/accept', data);
+export const completeDelivery = (data) => API.put('/delivery/complete', data);
+
+// ---- ADMIN ----
+export const createWorker = (data) => API.post('/admin/create-worker', data);
+export const createDeliverer = (data) => API.post('/admin/create-deliverer', data);
+export const getAllUsers = () => API.get('/admin/users');
+export const getAnalytics = () => API.get('/admin/analytics');
+export const getAllOrders = () => API.get('/laundry/all-orders');
+export const assignWorker = (data) => API.put('/admin/assign-worker', data);
