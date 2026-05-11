@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { getDeliveryTasks, acceptDeliveryTask, completeDelivery } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
+import GreetingHeader from '../components/GreetingHeader';
+import { motion } from 'framer-motion';
 
 const DelivererDashboard = () => {
   const { user, logout } = useAuth();
@@ -30,42 +32,68 @@ const DelivererDashboard = () => {
     catch (err) { alert('Failed to complete delivery'); }
   };
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const pendingTasks = tasks.filter(t => t.status === 'pending');
+  const activeTasks = tasks.filter(t => t.status === 'picked_up' || t.status === 'in_transit');
 
   return (
-    <DashboardLayout title="Deliverer Panel">
+    <DashboardLayout title="Logistics Center">
+      <div className="max-w-7xl mx-auto">
+        <GreetingHeader name={user?.full_name} role={user?.role} />
 
-      <main style={{ maxWidth: 900, margin: '24px auto', padding: '0 16px' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Delivery Tasks ({tasks.length})</h2>
-
-        {loading ? <p style={{ color: '#999' }}>Loading...</p> :
-          tasks.length === 0 ? <div style={{ background: '#fff', padding: 40, borderRadius: 12, textAlign: 'center', color: '#999' }}>No delivery tasks available.</div> :
-          tasks.map(task => (
-            <div key={task.id} style={{ background: '#fff', borderRadius: 12, padding: 20, marginBottom: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0984e3', fontSize: 15 }}>{task.tracking_code}</p>
-                <p style={{ fontSize: 13, color: '#666', marginTop: 4 }}>Student: {task.student_name} • Phone: {task.student_phone || 'N/A'}</p>
-                <p style={{ fontSize: 13, color: '#999', marginTop: 2 }}>{task.item_count} items • {task.total_price} ETB</p>
-                <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>Status: <strong style={{ textTransform: 'capitalize' }}>{task.status.replace(/_/g, ' ')}</strong></p>
-              </div>
-              <div>
-                {task.status === 'pending' && (
-                  <button onClick={() => handleAccept(task.id)}
-                    style={{ background: '#0984e3', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                    Accept & Pick Up
-                  </button>
-                )}
-                {(task.status === 'picked_up' || task.status === 'in_transit') && (
-                  <button onClick={() => handleComplete(task.id)}
-                    style={{ background: '#2ed573', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                    ✓ Mark Delivered
-                  </button>
-                )}
+        {loading ? <p className="text-gray-500">Loading delivery tasks...</p> : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* Pending Pickups */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                Ready for Pickup ({pendingTasks.length})
+              </h2>
+              <div className="space-y-4">
+                {pendingTasks.length === 0 ? <p className="text-gray-400 text-sm">No tasks pending pickup.</p> :
+                  pendingTasks.map(task => (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={task.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-blue-300 transition">
+                      <div>
+                        <p className="font-mono font-bold text-blue-600 text-sm">{task.tracking_code}</p>
+                        <p className="text-sm font-medium text-gray-900 mt-1">{task.student_name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{task.item_count} items • {task.student_phone || 'No phone'}</p>
+                      </div>
+                      <button onClick={() => handleAccept(task.id)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">
+                        Accept
+                      </button>
+                    </motion.div>
+                  ))
+                }
               </div>
             </div>
-          ))
-        }
-      </main>
+
+            {/* Out for Delivery */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
+                Out for Delivery ({activeTasks.length})
+              </h2>
+              <div className="space-y-4">
+                {activeTasks.length === 0 ? <p className="text-gray-400 text-sm">No active deliveries.</p> :
+                  activeTasks.map(task => (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={task.id} className="bg-green-50 border border-green-200 rounded-xl p-4 flex justify-between items-center">
+                      <div>
+                        <p className="font-mono font-bold text-green-700 text-sm">{task.tracking_code}</p>
+                        <p className="text-sm font-medium text-gray-900 mt-1">{task.student_name}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{task.item_count} items • {task.student_phone || 'No phone'}</p>
+                      </div>
+                      <button onClick={() => handleComplete(task.id)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition flex items-center gap-2">
+                        ✓ Complete
+                      </button>
+                    </motion.div>
+                  ))
+                }
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 };

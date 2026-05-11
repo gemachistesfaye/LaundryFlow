@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getMyOrders, createOrder, getMyPayments, createPayment } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
+import GreetingHeader from '../components/GreetingHeader';
 
 const StatusBadge = ({ status }) => {
   const colors = {
@@ -80,8 +81,9 @@ const StudentDashboard = () => {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <DashboardLayout title="Student Dashboard">
+    <DashboardLayout title="Student Control Center">
       <main className="max-w-5xl mx-auto">
+        <GreetingHeader name={user?.full_name} role={user?.role} />
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
           <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
