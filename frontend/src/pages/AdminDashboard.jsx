@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker } from '../services/api';
+import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker, getAllPayments, confirmPayment } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
@@ -10,6 +10,7 @@ const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState({});
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(null); // 'worker' or 'deliverer'
   const [form, setForm] = useState({ username: '', email: '', password: '', full_name: '', phone: '' });
   const [msg, setMsg] = useState('');
@@ -18,10 +19,11 @@ const AdminDashboard = () => {
 
   const loadData = async () => {
     try {
-      const [a, u, o] = await Promise.all([getAnalytics(), getAllUsers(), getAllOrders()]);
+      const [a, u, o, p] = await Promise.all([getAnalytics(), getAllUsers(), getAllOrders(), getAllPayments()]);
       setAnalytics(a.data.analytics);
       setUsers(u.data.users);
       setOrders(o.data.orders);
+      setPayments(p.data.payments);
     } catch (err) { console.error(err); }
   };
 
@@ -51,9 +53,23 @@ const AdminDashboard = () => {
     } catch (err) { alert('Failed to assign worker.'); }
   };
 
+  const handleConfirmPayment = async (paymentId) => {
+    try {
+      await confirmPayment({ payment_id: paymentId, status: 'confirmed' });
+      loadData();
+    } catch (err) { alert('Failed to confirm payment.'); }
+  };
+
+  const handleRejectPayment = async (paymentId) => {
+    try {
+      await confirmPayment({ payment_id: paymentId, status: 'rejected' });
+      loadData();
+    } catch (err) { alert('Failed to reject payment.'); }
+  };
+
   const handleLogout = () => { logout(); navigate('/login'); };
 
-  const tabs = ['analytics', 'orders', 'users'];
+  const tabs = ['analytics', 'orders', 'users', 'payments'];
 
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
@@ -160,6 +176,49 @@ const AdminDashboard = () => {
                         color: '#fff' }}>{u.role}</span>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: '#999' }}>{new Date(u.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Payments Tab */}
+        {tab === 'payments' && (
+          <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f8f9fa', fontSize: 13, color: '#666' }}>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Student</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Method</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.length === 0 ? (
+                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: 30, color: '#999' }}>No payments found.</td></tr>
+                ) : payments.map(p => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600 }}>{p.student_name}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, textTransform: 'capitalize' }}>{p.payment_method}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#999' }}>{new Date(p.created_at).toLocaleDateString()}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700 }}>{p.amount} ETB</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#fff', background: p.status === 'confirmed' ? '#1dd1a1' : p.status === 'pending' ? '#ffa502' : '#ff4757' }}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      {p.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <button onClick={() => handleConfirmPayment(p.id)} style={{ background: '#1dd1a1', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>✓</button>
+                          <button onClick={() => handleRejectPayment(p.id)} style={{ background: '#ff4757', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>✗</button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

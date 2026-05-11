@@ -31,7 +31,7 @@ const LoginPage = () => {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-        <h1 style={{ textAlign: 'center', fontSize: 28, fontWeight: 800, color: '#1a1a2e', marginBottom: 4 }}>🧺 Smart Wash Hub</h1>
+        <h1 style={{ textAlign: 'center', fontSize: 28, fontWeight: 800, color: '#1a1a2e', marginBottom: 4 }}>🧺 LaundryFlow</h1>
         <p style={{ textAlign: 'center', color: '#666', marginBottom: 30, fontSize: 14 }}>University Laundry Management System</p>
 
         {error && <div style={{ background: '#fee', color: '#c00', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
