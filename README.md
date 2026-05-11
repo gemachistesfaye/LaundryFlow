@@ -56,7 +56,7 @@ graph LR
 |---------:|--------------|
 | Frontend | Next.js 16 (App Router), React 19, TailwindCSS v4 |
 | Backend  | Next.js Server Actions, Node.js |
-| Database | MongoDB + Mongoose |
+| Database | MySQL |
 | Auth     | JWT, Secure Cookies, Middleware |
 | Storage  | Cloudinary (images, payment proof) |
 | Realtime | Pusher / WebSockets |
