@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, Search, Menu, X, Shirt, LogOut, LayoutDashboard, Settings, User, FileText, Truck, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AIChatbot from './AIChatbot';
 
 const getNavigation = (role) => {
   switch (role) {
@@ -132,6 +133,9 @@ const DashboardLayout = ({ children, title }) => {
           </motion.div>
         </main>
       </div>
+
+      {/* Global AI Chat Widget */}
+      <AIChatbot />
     </div>
   );
 };

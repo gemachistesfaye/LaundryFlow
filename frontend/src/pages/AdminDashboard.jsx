@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker, getAllPayments, confirmPayment } from '../services/api';
+import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker, getAllPayments, confirmPayment, getAIInsights } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 
@@ -12,6 +12,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [aiInsights, setAiInsights] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(null); // 'worker' or 'deliverer'
   const [form, setForm] = useState({ username: '', email: '', password: '', full_name: '', phone: '' });
   const [msg, setMsg] = useState('');
@@ -20,11 +21,12 @@ const AdminDashboard = () => {
 
   const loadData = async () => {
     try {
-      const [a, u, o, p] = await Promise.all([getAnalytics(), getAllUsers(), getAllOrders(), getAllPayments()]);
+      const [a, u, o, p, ai] = await Promise.all([getAnalytics(), getAllUsers(), getAllOrders(), getAllPayments(), getAIInsights()]);
       setAnalytics(a.data.analytics);
       setUsers(u.data.users);
       setOrders(o.data.orders);
       setPayments(p.data.payments);
+      setAiInsights(ai.data.insights || []);
     } catch (err) { console.error(err); }
   };
 
@@ -92,6 +94,7 @@ const AdminDashboard = () => {
       <main style={{ maxWidth: 1100, margin: '24px auto', padding: '0 16px' }}>
         {/* Analytics Tab */}
         {tab === 'analytics' && (
+        <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
             {[
               { label: 'Students', value: analytics.totalStudents, color: '#667eea' },
@@ -108,6 +111,35 @@ const AdminDashboard = () => {
               </div>
             ))}
           </div>
+
+          {/* AI Insights Section */}
+          <div style={{ marginTop: 32, background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: 'linear-gradient(to right, #667eea, #764ba2)', padding: '16px 24px', color: '#fff' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>🤖</span> AI System Analytics & Predictions
+              </h2>
+            </div>
+            <div style={{ padding: '24px' }}>
+              {aiInsights.length === 0 ? <p style={{ color: '#999' }}>No AI insights available at the moment.</p> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {aiInsights.map((insight, idx) => (
+                    <div key={idx} style={{ 
+                      padding: 16, borderRadius: 8, display: 'flex', gap: 12, alignItems: 'flex-start',
+                      background: insight.severity === 'warning' ? '#fff3cd' : insight.severity === 'success' ? '#d4edda' : '#e2e3f1',
+                      borderLeft: `4px solid ${insight.severity === 'warning' ? '#ffc107' : insight.severity === 'success' ? '#28a745' : '#667eea'}`
+                    }}>
+                      <span style={{ fontSize: 20 }}>{insight.severity === 'warning' ? '⚠️' : insight.severity === 'success' ? '📈' : '🔮'}</span>
+                      <div>
+                        <p style={{ fontWeight: 700, fontSize: 13, textTransform: 'capitalize', color: '#333', marginBottom: 2 }}>{insight.type.replace('_', ' ')}</p>
+                        <p style={{ fontSize: 14, color: '#555' }}>{insight.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
         )}
 
         {/* Orders Tab */}
