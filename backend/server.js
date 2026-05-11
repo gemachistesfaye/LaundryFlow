@@ -11,14 +11,13 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Routes Placeholder
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/orders', require('./routes/orders'));
+
 app.get('/', (req, res) => {
   res.json({ message: "Welcome to Smart Wash Hub API" });
 });
-
-// Import and use routes (once created)
-// app.use('/api/auth', require('./routes/auth'));
-// app.use('/api/orders', require('./routes/orders'));
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

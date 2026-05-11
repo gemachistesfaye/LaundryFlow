@@ -6,6 +6,7 @@ A production-grade, full-stack laundry management platform designed for universi
 
 - **`/frontend`**: React + Vite + Tailwind CSS. Modern dashboard UI for all user roles.
 - **`/backend`**: Node.js + Express + MySQL. Robust REST API for order tracking and payments.
+- **`/database`**: MySQL SQL schema files for easy XAMPP import.
 - **`/docs`**: System architecture, database schema, and API documentation.
 
 ---
