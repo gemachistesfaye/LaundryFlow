@@ -1,106 +1,67 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authService } from '../services/api';
+import { register } from '../services/api';
 
 const RegisterPage = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'student',
-    phone: ''
-  });
+  const [form, setForm] = useState({ username: '', email: '', password: '', full_name: '', phone: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      const res = await authService.register(formData);
-      if (res.success) {
-        alert("Registration successful! You can now login.");
+      const res = await register(form);
+      if (res.data.success) {
+        alert('Registration successful! Please login.');
         navigate('/login');
-      } else {
-        setError(res.message);
       }
     } catch (err) {
-      setError("Failed to register. Email might already exist.");
+      setError(err.response?.data?.message || 'Registration failed.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
-        </div>
-        <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-center text-sm">{error}</div>}
-          <div className="rounded-md shadow-sm space-y-2">
-            <input
-              name="name"
-              type="text"
-              required
-              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="Full Name"
-              value={formData.name}
-              onChange={handleChange}
-            />
-            <input
-              name="email"
-              type="email"
-              required
-              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="Email address"
-              value={formData.email}
-              onChange={handleChange}
-            />
-            <input
-              name="password"
-              type="password"
-              required
-              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-            />
-            <select
-              name="role"
-              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={formData.role}
-              onChange={handleChange}
-            >
-              <option value="student">Student</option>
-              <option value="worker">Worker</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <h1 style={{ textAlign: 'center', fontSize: 24, fontWeight: 800, color: '#1a1a2e', marginBottom: 4 }}>Create Student Account</h1>
+        <p style={{ textAlign: 'center', color: '#666', marginBottom: 24, fontSize: 13 }}>Only students can self-register</p>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              {loading ? 'Registering...' : 'Register'}
-            </button>
-          </div>
-          <div className="text-center text-sm">
-            <Link to="/login" className="text-indigo-600 hover:underline">Already have an account? Sign in</Link>
-          </div>
+        {error && <div style={{ background: '#fee', color: '#c00', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          {[
+            { name: 'full_name', label: 'Full Name', type: 'text', placeholder: 'John Doe' },
+            { name: 'username', label: 'Username', type: 'text', placeholder: 'johndoe' },
+            { name: 'email', label: 'Email', type: 'email', placeholder: 'john@university.edu' },
+            { name: 'phone', label: 'Phone (optional)', type: 'text', placeholder: '+251...' },
+            { name: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
+          ].map(field => (
+            <div key={field.name} style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 4 }}>{field.label}</label>
+              <input
+                name={field.name} type={field.type} value={form[field.name]} onChange={handleChange}
+                required={field.name !== 'phone'} placeholder={field.placeholder}
+                style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
+              />
+            </div>
+          ))}
+
+          <button type="submit" disabled={loading}
+            style={{ width: '100%', padding: '12px', background: loading ? '#999' : '#667eea', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginTop: 8 }}>
+            {loading ? 'Registering...' : 'Register'}
+          </button>
         </form>
+
+        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#666' }}>
+          Already have an account? <Link to="/login" style={{ color: '#667eea', fontWeight: 600 }}>Sign in</Link>
+        </p>
       </div>
     </div>
   );

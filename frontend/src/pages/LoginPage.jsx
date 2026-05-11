@@ -1,87 +1,65 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authService } from '../services/api';
+import { login } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { loginUser } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      const res = await authService.login(email, password);
-      if (res.success) {
-        login(res.user);
-        // Redirect based on role
-        const role = res.user.role.toLowerCase();
-        navigate(`/dashboard/${role}`);
-      } else {
-        setError(res.message);
+      const res = await login({ username, password });
+      if (res.data.success) {
+        loginUser(res.data.user, res.data.token);
+        navigate(`/${res.data.user.role}/dashboard`);
       }
     } catch (err) {
-      setError("Failed to login. Check your credentials.");
+      setError(err.response?.data?.message || 'Login failed.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to Smart Wash Hub
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-              create a new account
-            </Link>
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-center text-sm">{error}</div>}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 40, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <h1 style={{ textAlign: 'center', fontSize: 28, fontWeight: 800, color: '#1a1a2e', marginBottom: 4 }}>🧺 Smart Wash Hub</h1>
+        <p style={{ textAlign: 'center', color: '#666', marginBottom: 30, fontSize: 14 }}>University Laundry Management System</p>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </div>
+        {error && <div style={{ background: '#fee', color: '#c00', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 6 }}>Username</label>
+          <input
+            type="text" value={username} onChange={e => setUsername(e.target.value)} required
+            style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: 8, marginBottom: 16, fontSize: 14, boxSizing: 'border-box' }}
+            placeholder="Enter your username"
+          />
+
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 6 }}>Password</label>
+          <input
+            type="password" value={password} onChange={e => setPassword(e.target.value)} required
+            style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: 8, marginBottom: 24, fontSize: 14, boxSizing: 'border-box' }}
+            placeholder="Enter your password"
+          />
+
+          <button type="submit" disabled={loading}
+            style={{ width: '100%', padding: '12px', background: loading ? '#999' : '#667eea', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
         </form>
+
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#666' }}>
+          Student? <Link to="/register" style={{ color: '#667eea', fontWeight: 600 }}>Create an account</Link>
+        </p>
       </div>
     </div>
   );

@@ -1,125 +1,154 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { orderService } from '../services/api';
-import { Plus, History, LogOut, Wallet } from 'lucide-react';
+import { getMyOrders, createOrder } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+
+const StatusBadge = ({ status }) => {
+  const colors = {
+    submitted: { bg: '#fff3cd', color: '#856404' },
+    assigned: { bg: '#cce5ff', color: '#004085' },
+    washing: { bg: '#d4edda', color: '#155724' },
+    drying: { bg: '#d1ecf1', color: '#0c5460' },
+    ready: { bg: '#d4edda', color: '#155724' },
+    out_for_delivery: { bg: '#e2e3f1', color: '#383d6e' },
+    delivered: { bg: '#c3e6cb', color: '#1e7e34' },
+    cancelled: { bg: '#f5c6cb', color: '#721c24' },
+  };
+  const c = colors[status] || { bg: '#eee', color: '#333' };
+  return <span style={{ background: c.bg, color: c.color, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{status.replace(/_/g, ' ')}</span>;
+};
 
 const StudentDashboard = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [items, setItems] = useState([{ name: '', quantity: 1 }]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      fetchOrders();
-    }
-  }, [user]);
+  useEffect(() => { fetchOrders(); }, []);
 
   const fetchOrders = async () => {
     try {
-      const res = await orderService.getMyOrders(user.id);
-      if (res.success) {
-        setOrders(res.orders);
-      }
-    } catch (err) {
-      console.error("Error fetching orders:", err);
-    } finally {
-      setLoading(false);
-    }
+      const res = await getMyOrders();
+      setOrders(res.data.orders);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
+  const handleAddItem = () => setItems([...items, { name: '', quantity: 1 }]);
+  const handleItemChange = (i, field, val) => {
+    const updated = [...items];
+    updated[i][field] = field === 'quantity' ? parseInt(val) || 1 : val;
+    setItems(updated);
+  };
+
+  const handleSubmitOrder = async (e) => {
+    e.preventDefault();
+    const validItems = items.filter(i => i.name.trim());
+    if (validItems.length === 0) return;
+    try {
+      await createOrder({ items: validItems, notes: '' });
+      setShowModal(false);
+      setItems([{ name: '', quantity: 1 }]);
+      fetchOrders();
+    } catch (err) { alert('Failed to create order'); }
+  };
+
+  const handleLogout = () => { logout(); navigate('/login'); };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top Navbar */}
-      <nav className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-indigo-600">Smart Wash Hub</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-gray-600">Welcome, {user?.name}</span>
-          <button 
-            onClick={logout}
-            className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
-          >
-            <LogOut size={20} />
-          </button>
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
+      {/* Navbar */}
+      <nav style={{ background: '#fff', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: '#667eea' }}>🧺 Smart Wash Hub</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ fontSize: 14, color: '#555' }}>👤 {user?.full_name} <span style={{ background: '#667eea', color: '#fff', padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>Student</span></span>
+          <button onClick={handleLogout} style={{ background: '#ff4757', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>Logout</button>
         </div>
       </nav>
 
-      <main className="flex-1 p-8 max-w-6xl mx-auto w-full">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Wallet Card */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg">
-              <Wallet size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Wallet Balance</p>
-              <p className="text-2xl font-bold">{user?.wallet_balance || 0} ETB</p>
-            </div>
+      <main style={{ maxWidth: 1000, margin: '24px auto', padding: '0 16px' }}>
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
+          <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <p style={{ color: '#999', fontSize: 13, marginBottom: 4 }}>Wallet Balance</p>
+            <p style={{ fontSize: 28, fontWeight: 800, color: '#667eea' }}>{user?.wallet_balance || 0} ETB</p>
           </div>
-          
-          {/* Total Orders Card */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-              <History size={24} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Orders</p>
-              <p className="text-2xl font-bold">{orders.length}</p>
-            </div>
+          <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <p style={{ color: '#999', fontSize: 13, marginBottom: 4 }}>Total Orders</p>
+            <p style={{ fontSize: 28, fontWeight: 800, color: '#2ed573' }}>{orders.length}</p>
           </div>
-
-          {/* New Order Button */}
-          <button className="bg-indigo-600 hover:bg-indigo-700 text-white p-6 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group">
-            <Plus size={24} className="group-hover:rotate-90 transition-transform" />
-            <span className="font-semibold text-lg">New Laundry Request</span>
-          </button>
+          <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <p style={{ color: '#999', fontSize: 13, marginBottom: 4 }}>Active</p>
+            <p style={{ fontSize: 28, fontWeight: 800, color: '#ffa502' }}>{orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length}</p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h2 className="text-lg font-bold text-gray-800">Your Laundry History</h2>
-            <button className="text-indigo-600 text-sm font-semibold hover:underline">View All</button>
+        {/* New Order Button */}
+        <button onClick={() => setShowModal(true)} style={{ background: '#667eea', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 20 }}>
+          + New Laundry Request
+        </button>
+
+        {/* Orders Table */}
+        <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #eee' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700 }}>Your Orders</h2>
           </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 text-gray-500 text-sm uppercase">
-                <tr>
-                  <th className="px-6 py-4 font-semibold">Tracking ID</th>
-                  <th className="px-6 py-4 font-semibold">Date</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 font-semibold text-right">Price</th>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f8f9fa', fontSize: 13, color: '#666' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left' }}>Tracking Code</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left' }}>Items</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
+                <th style={{ padding: '12px 16px', textAlign: 'right' }}>Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: 30, color: '#999' }}>Loading...</td></tr>
+              ) : orders.length === 0 ? (
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: 30, color: '#999' }}>No orders yet. Submit your first laundry request!</td></tr>
+              ) : orders.map(order => (
+                <tr key={order.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#667eea' }}>{order.tracking_code}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: '#666' }}>{new Date(order.created_at).toLocaleDateString()}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13 }}>{order.item_count} items</td>
+                  <td style={{ padding: '12px 16px' }}><StatusBadge status={order.status} /></td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700 }}>{order.total_price} ETB</td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr><td colSpan="4" className="text-center py-8 text-gray-400">Loading history...</td></tr>
-                ) : orders.length === 0 ? (
-                  <tr><td colSpan="4" className="text-center py-8 text-gray-400">No orders found yet.</td></tr>
-                ) : (
-                  orders.map(order => (
-                    <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-sm text-indigo-600">{order.tracking_code}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${
-                          order.status === 'completed' ? 'bg-green-100 text-green-700' :
-                          order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {order.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-bold text-gray-900">{order.total_price} ETB</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </main>
+
+      {/* New Order Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 450, maxHeight: '80vh', overflow: 'auto' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>New Laundry Request</h2>
+            <form onSubmit={handleSubmitOrder}>
+              {items.map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input placeholder="Item name (e.g. T-shirt)" value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)}
+                    style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #ddd', borderRadius: 6, fontSize: 14 }} />
+                  <input type="number" min="1" value={item.quantity} onChange={e => handleItemChange(i, 'quantity', e.target.value)}
+                    style={{ width: 60, padding: '8px', border: '1.5px solid #ddd', borderRadius: 6, fontSize: 14, textAlign: 'center' }} />
+                </div>
+              ))}
+              <button type="button" onClick={handleAddItem} style={{ background: 'none', color: '#667eea', border: '1.5px dashed #667eea', padding: '8px', borderRadius: 6, width: '100%', cursor: 'pointer', marginBottom: 16, fontSize: 13 }}>
+                + Add another item
+              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={() => setShowModal(false)} style={{ flex: 1, padding: 10, background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" style={{ flex: 1, padding: 10, background: '#667eea', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>Submit Order</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
