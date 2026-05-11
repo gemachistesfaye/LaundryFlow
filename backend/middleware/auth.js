@@ -1,32 +1,31 @@
 const jwt = require('jsonwebtoken');
 
-/**
- * Middleware to verify JWT token and user role
- * @param {Array} roles - Allowed roles for this route
- */
-const protect = (roles = []) => {
+// Verify JWT token
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired token.' });
+  }
+};
+
+// Role-based access control middleware
+const authorize = (...allowedRoles) => {
   return (req, res, next) => {
-    const authHeader = req.headers.get('authorization') || req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({ success: false, message: "No token, authorization denied" });
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied. Unauthorized role.' });
     }
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-      req.user = decoded;
-
-      // Check if user role is allowed
-      if (roles.length > 0 && !roles.includes(decoded.role.toLowerCase())) {
-        return res.status(403).json({ success: false, message: "Access denied: Unauthorized role" });
-      }
-
-      next();
-    } catch (err) {
-      res.status(401).json({ success: false, message: "Token is not valid" });
-    }
+    next();
   };
 };
 
-module.exports = { protect };
+module.exports = { verifyToken, authorize };
