@@ -11,5 +11,6 @@ router.post('/create-deliverer', adminController.createDeliverer);
 router.get('/users', adminController.getAllUsers);
 router.get('/analytics', adminController.getAnalytics);
 router.put('/assign-worker', adminController.assignWorker);
+router.put('/assign-deliverer', adminController.assignDeliverer);
 
 module.exports = router;

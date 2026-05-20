@@ -100,3 +100,26 @@ exports.assignWorker = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
+
+// PUT /api/admin/assign-deliverer
+exports.assignDeliverer = async (req, res) => {
+  const { order_id, deliverer_id } = req.body;
+  try {
+    // Update the delivery task with the deliverer
+    const [tasks] = await db.query('SELECT id FROM delivery_tasks WHERE order_id = ? AND status = ?', [order_id, 'pending']);
+    if (tasks.length === 0) {
+      // Create a delivery task if one doesn't exist
+      await db.query('INSERT INTO delivery_tasks (order_id, deliverer_id, status) VALUES (?, ?, ?)', [order_id, deliverer_id, 'picked_up']);
+    } else {
+      await db.query('UPDATE delivery_tasks SET deliverer_id = ?, status = ? WHERE id = ?', [deliverer_id, 'picked_up', tasks[0].id]);
+    }
+
+    // Update the order status to out_for_delivery
+    await db.query("UPDATE laundry_orders SET status = 'out_for_delivery' WHERE id = ?", [order_id]);
+
+    res.json({ success: true, message: 'Deliverer assigned. Order is out for delivery.' });
+  } catch (error) {
+    console.error('Assign Deliverer Error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};

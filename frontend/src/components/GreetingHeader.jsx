@@ -25,8 +25,7 @@ const GreetingHeader = ({ name, role, stats }) => {
             {role} Account
           </p>
         </div>
-      </
-      div>
+      </motion.div>
     </div>
   );
 };

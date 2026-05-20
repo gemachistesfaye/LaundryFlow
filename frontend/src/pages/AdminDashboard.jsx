@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker, getAllPayments, confirmPayment, getAIInsights } from '../services/api';
+import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker, assignDeliverer, getAllPayments, confirmPayment, getAIInsights } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 
@@ -45,15 +45,18 @@ const AdminDashboard = () => {
     } catch (err) { setMsg(err.response?.data?.message || 'Error creating account.'); }
   };
 
-  const handleAssignWorker = async (orderId) => {
-    const workers = users.filter(u => u.role === 'worker');
-    if (workers.length === 0) return alert('No workers available. Create one first.');
-    const workerId = prompt(`Enter worker ID:\n${workers.map(w => `${w.id}: ${w.full_name}`).join('\n')}`);
-    if (!workerId) return;
+  const handleAssignWorker = async (orderId, workerId) => {
     try {
       await assignWorker({ order_id: orderId, worker_id: parseInt(workerId) });
       loadData();
     } catch (err) { alert('Failed to assign worker.'); }
+  };
+
+  const handleAssignDeliverer = async (orderId, delivererId) => {
+    try {
+      await assignDeliverer({ order_id: orderId, deliverer_id: parseInt(delivererId) });
+      loadData();
+    } catch (err) { alert('Failed to assign deliverer.'); }
   };
 
   const handleConfirmPayment = async (paymentId) => {
@@ -164,10 +167,70 @@ const AdminDashboard = () => {
                     <td style={{ padding: '12px 16px', fontSize: 13, textTransform: 'capitalize', fontWeight: 600 }}>{order.status.replace(/_/g, ' ')}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                       {order.status === 'submitted' && (
-                        <button onClick={() => handleAssignWorker(order.id)}
-                          style={{ background: '#667eea', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                          Assign Worker
-                        </button>
+                        users.filter(u => u.role === 'worker').length === 0 ? (
+                          <span style={{ fontSize: 12, color: '#999', fontStyle: 'italic' }}>No workers active</span>
+                        ) : (
+                          <select
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                handleAssignWorker(order.id, val);
+                              }
+                            }}
+                            defaultValue=""
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: 6,
+                              border: '1.5px solid #667eea',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#667eea',
+                              background: '#fff',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="" disabled>Assign Worker...</option>
+                            {users.filter(u => u.role === 'worker').map(w => (
+                              <option key={w.id} value={w.id}>
+                                {w.full_name}
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      )}
+                      {order.status === 'ready' && (
+                        users.filter(u => u.role === 'deliverer').length === 0 ? (
+                          <span style={{ fontSize: 12, color: '#999', fontStyle: 'italic' }}>No deliverers active</span>
+                        ) : (
+                          <select
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                handleAssignDeliverer(order.id, val);
+                              }
+                            }}
+                            defaultValue=""
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: 6,
+                              border: '1.5px solid #0984e3',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#0984e3',
+                              background: '#fff',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="" disabled>Send to Delivery...</option>
+                            {users.filter(u => u.role === 'deliverer').map(d => (
+                              <option key={d.id} value={d.id}>
+                                {d.full_name}
+                              </option>
+                            ))}
+                          </select>
+                        )
                       )}
                     </td>
                   </tr>
