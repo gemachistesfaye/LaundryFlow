@@ -50,7 +50,7 @@ exports.getAllPayments = async (req, res) => {
   try {
     const { data: payments, error } = await supabase
       .from('payments')
-      .select(`*, users(full_name), laundry_orders(tracking_code)`)
+      .select(`*, users!student_id(full_name), laundry_orders(tracking_code)`)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
