@@ -1,30 +1,48 @@
-const db = require('../db');
+const supabase = require('../db');
 
-// GET /api/delivery/tasks — Deliverer views pending delivery tasks
+// GET /api/delivery/tasks
 exports.getMyTasks = async (req, res) => {
   try {
-    const [tasks] = await db.query(
-      `SELECT dt.*, o.tracking_code, o.total_price, o.item_count, u.full_name as student_name, u.phone as student_phone
-       FROM delivery_tasks dt
-       JOIN laundry_orders o ON dt.order_id = o.id
-       JOIN users u ON o.student_id = u.id
-       WHERE (dt.deliverer_id = ? OR dt.deliverer_id IS NULL) AND dt.status != 'delivered'
-       ORDER BY dt.created_at DESC`,
-      [req.user.userId]
-    );
-    res.json({ success: true, tasks });
+    const { data: tasks, error } = await supabase
+      .from('delivery_tasks')
+      .select(`
+        *,
+        laundry_orders(tracking_code, total_price, item_count,
+          users!laundry_orders_student_id_fkey(full_name, phone)
+        )
+      `)
+      .or(`deliverer_id.eq.${req.user.userId},deliverer_id.is.null`)
+      .neq('status', 'delivered')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = (tasks || []).map(t => ({
+      ...t,
+      tracking_code: t.laundry_orders?.tracking_code,
+      total_price: t.laundry_orders?.total_price,
+      item_count: t.laundry_orders?.item_count,
+      student_name: t.laundry_orders?.users?.full_name,
+      student_phone: t.laundry_orders?.users?.phone
+    }));
+
+    res.json({ success: true, tasks: mapped });
   } catch (error) {
     console.error('Get Delivery Tasks Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-// PUT /api/delivery/accept — Deliverer accepts a task
+// PUT /api/delivery/accept
 exports.acceptTask = async (req, res) => {
   const { task_id } = req.body;
   try {
-    await db.query('UPDATE delivery_tasks SET deliverer_id = ?, status = ? WHERE id = ?',
-      [req.user.userId, 'picked_up', task_id]);
+    const { error } = await supabase
+      .from('delivery_tasks')
+      .update({ deliverer_id: req.user.userId, status: 'picked_up' })
+      .eq('id', task_id);
+
+    if (error) throw error;
     res.json({ success: true, message: 'Task accepted.' });
   } catch (error) {
     console.error('Accept Task Error:', error);
@@ -32,21 +50,26 @@ exports.acceptTask = async (req, res) => {
   }
 };
 
-// PUT /api/delivery/complete — Deliverer marks delivery as complete
+// PUT /api/delivery/complete
 exports.completeDelivery = async (req, res) => {
   const { task_id } = req.body;
   try {
-    // Update delivery task
-    await db.query('UPDATE delivery_tasks SET status = ?, delivered_at = NOW() WHERE id = ?',
-      ['delivered', task_id]);
+    const { error: taskError } = await supabase
+      .from('delivery_tasks')
+      .update({ status: 'delivered', delivered_at: new Date().toISOString() })
+      .eq('id', task_id);
 
-    // Get the order_id from the task
-    const [tasks] = await db.query('SELECT order_id FROM delivery_tasks WHERE id = ?', [task_id]);
-    if (tasks.length > 0) {
-      const orderId = tasks[0].order_id;
-      // Update laundry order status to delivered
-      await db.query("UPDATE laundry_orders SET status = 'delivered' WHERE id = ?", [orderId]);
-      await db.query("UPDATE clothes SET status = 'delivered' WHERE order_id = ?", [orderId]);
+    if (taskError) throw taskError;
+
+    const { data: taskData } = await supabase
+      .from('delivery_tasks')
+      .select('order_id')
+      .eq('id', task_id)
+      .single();
+
+    if (taskData) {
+      await supabase.from('laundry_orders').update({ status: 'delivered' }).eq('id', taskData.order_id);
+      await supabase.from('clothes').update({ status: 'delivered' }).eq('order_id', taskData.order_id);
     }
 
     res.json({ success: true, message: 'Delivery completed.' });

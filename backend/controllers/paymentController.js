@@ -1,6 +1,6 @@
-const db = require('../db');
+const supabase = require('../db');
 
-// POST /api/payments/create — Student creates a payment for an order
+// POST /api/payments/create
 exports.createPayment = async (req, res) => {
   const { order_id, amount, payment_method } = req.body;
   const student_id = req.user.userId;
@@ -10,10 +10,11 @@ exports.createPayment = async (req, res) => {
   }
 
   try {
-    await db.query(
-      'INSERT INTO payments (student_id, order_id, amount, payment_method, status) VALUES (?, ?, ?, ?, ?)',
-      [student_id, order_id, amount, payment_method || 'cash', 'pending']
-    );
+    const { error } = await supabase
+      .from('payments')
+      .insert([{ student_id, order_id, amount, payment_method: payment_method || 'cash', status: 'pending' }]);
+
+    if (error) throw error;
     res.status(201).json({ success: true, message: 'Payment submitted for confirmation.' });
   } catch (error) {
     console.error('Create Payment Error:', error);
@@ -21,56 +22,85 @@ exports.createPayment = async (req, res) => {
   }
 };
 
-// GET /api/payments/my-payments — Student views their payments
+// GET /api/payments/my-payments
 exports.getMyPayments = async (req, res) => {
   try {
-    const [payments] = await db.query(
-      `SELECT p.*, o.tracking_code 
-       FROM payments p 
-       LEFT JOIN laundry_orders o ON p.order_id = o.id 
-       WHERE p.student_id = ? ORDER BY p.created_at DESC`,
-      [req.user.userId]
-    );
-    res.json({ success: true, payments });
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select(`*, laundry_orders(tracking_code)`)
+      .eq('student_id', req.user.userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = (payments || []).map(p => ({
+      ...p,
+      tracking_code: p.laundry_orders?.tracking_code || null
+    }));
+
+    res.json({ success: true, payments: mapped });
   } catch (error) {
     console.error('Get Payments Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-// GET /api/payments/all — Admin views all payments
+// GET /api/payments/all
 exports.getAllPayments = async (req, res) => {
   try {
-    const [payments] = await db.query(
-      `SELECT p.*, u.full_name as student_name, o.tracking_code 
-       FROM payments p 
-       JOIN users u ON p.student_id = u.id 
-       LEFT JOIN laundry_orders o ON p.order_id = o.id 
-       ORDER BY p.created_at DESC`
-    );
-    res.json({ success: true, payments });
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select(`*, users(full_name), laundry_orders(tracking_code)`)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = (payments || []).map(p => ({
+      ...p,
+      student_name: p.users?.full_name || null,
+      tracking_code: p.laundry_orders?.tracking_code || null
+    }));
+
+    res.json({ success: true, payments: mapped });
   } catch (error) {
     console.error('Get All Payments Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-// PUT /api/payments/confirm — Admin confirms a payment
+// PUT /api/payments/confirm
 exports.confirmPayment = async (req, res) => {
-  const { payment_id, status } = req.body; // status: 'confirmed' or 'rejected'
+  const { payment_id, status } = req.body;
 
   try {
-    await db.query(
-      'UPDATE payments SET status = ?, confirmed_by = ? WHERE id = ?',
-      [status, req.user.userId, payment_id]
-    );
+    const { error: updateError } = await supabase
+      .from('payments')
+      .update({ status, confirmed_by: req.user.userId })
+      .eq('id', payment_id);
 
-    // If confirmed, update the user's wallet balance or mark the order as paid
+    if (updateError) throw updateError;
+
     if (status === 'confirmed') {
-      const [payment] = await db.query('SELECT student_id, amount FROM payments WHERE id = ?', [payment_id]);
-      if (payment.length > 0) {
-        await db.query('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?', 
-          [payment[0].amount, payment[0].student_id]);
+      const { data: paymentRows } = await supabase
+        .from('payments')
+        .select('student_id, amount')
+        .eq('id', payment_id)
+        .single();
+
+      if (paymentRows) {
+        // Fetch current wallet balance, then increment
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('wallet_balance')
+          .eq('id', paymentRows.student_id)
+          .single();
+
+        const newBalance = (userRow?.wallet_balance || 0) + paymentRows.amount;
+
+        await supabase
+          .from('users')
+          .update({ wallet_balance: newBalance })
+          .eq('id', paymentRows.student_id);
       }
     }
 

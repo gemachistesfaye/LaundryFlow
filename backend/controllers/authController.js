@@ -1,12 +1,13 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../db');
-const { createClient } = require('@supabase/supabase-js');
+const supabase = require('../db');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_ANON_KEY || ''
-);
+const signToken = (user) =>
+  jwt.sign(
+    { userId: user.id, role: user.role, username: user.username },
+    process.env.JWT_SECRET || 'secret',
+    { expiresIn: '7d' }
+  );
 
 // POST /api/auth/register (Students only)
 exports.register = async (req, res) => {
@@ -17,23 +18,32 @@ exports.register = async (req, res) => {
   }
 
   try {
-    const [existing] = await db.query('SELECT id FROM users WHERE email = ? OR username = ?', [email, username]);
-    if (existing.length > 0) {
+    // Check if user exists
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .or(`email.eq.${email},username.eq.${username}`)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
       return res.status(409).json({ success: false, message: 'Username or email already exists.' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
-    const [result] = await db.query(
-      'INSERT INTO users (username, email, password_hash, role, full_name, phone) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, email, password_hash, 'student', full_name, phone || '']
-    );
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ username, email, password_hash, role: 'student', full_name, phone: phone || '' }])
+      .select('id')
+      .single();
+
+    if (error) throw error;
 
     res.status(201).json({
       success: true,
       message: 'Registration successful. You can now login.',
-      userId: result.insertId
+      userId: data.id
     });
   } catch (error) {
     console.error('Register Error:', error);
@@ -50,8 +60,15 @@ exports.login = async (req, res) => {
   }
 
   try {
-    const [rows] = await db.query('SELECT * FROM users WHERE username = ? AND is_active = TRUE', [username]);
-    const user = rows[0];
+    const { data: rows, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (error) throw error;
+    const user = rows && rows[0];
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials.' });
@@ -62,11 +79,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role, username: user.username },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
-    );
+    const token = signToken(user);
 
     res.json({
       success: true,
@@ -86,14 +99,17 @@ exports.login = async (req, res) => {
   }
 };
 
-// GET /api/auth/me — get current user from token
+// GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {
-    const [rows] = await db.query(
-      'SELECT id, username, email, role, full_name, wallet_balance, created_at FROM users WHERE id = ?',
-      [req.user.userId]
-    );
-    if (rows.length === 0) {
+    const { data: rows, error } = await supabase
+      .from('users')
+      .select('id, username, email, role, full_name, wallet_balance, created_at')
+      .eq('id', req.user.userId)
+      .limit(1);
+
+    if (error) throw error;
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
     res.json({ success: true, user: rows[0] });
@@ -103,7 +119,7 @@ exports.getMe = async (req, res) => {
   }
 };
 
-// POST /api/auth/supabase-login
+// POST /api/auth/supabase-login (Google OAuth)
 exports.supabaseLogin = async (req, res) => {
   const { token } = req.body;
 
@@ -112,58 +128,48 @@ exports.supabaseLogin = async (req, res) => {
   }
 
   try {
-    // 1. Verify the token with Supabase to get user details
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { createClient } = require('@supabase/supabase-js');
+    const supabaseAuth = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+    const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
 
     if (error || !user) {
       return res.status(401).json({ success: false, message: 'Invalid Supabase token.' });
     }
 
     const email = user.email;
-    // Generate a default username if one doesn't exist
-    const username = user.user_metadata.name?.toLowerCase().replace(/\s+/g, '_') || email.split('@')[0];
-    const full_name = user.user_metadata.full_name || user.user_metadata.name || 'Google User';
+    const username = user.user_metadata?.name?.toLowerCase().replace(/\s+/g, '_') || email.split('@')[0];
+    const full_name = user.user_metadata?.full_name || user.user_metadata?.name || 'Google User';
 
-    // 2. Check if the user already exists in your MySQL database
-    let [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-    let mysqlUser = rows[0];
+    let { data: rows } = await supabase.from('users').select('*').eq('email', email).limit(1);
+    let dbUser = rows && rows[0];
 
-    if (!mysqlUser) {
-      // Create user in MySQL (default to 'student' role)
-      const placeholderPasswordHash = ''; // No password needed for Google OAuth users
-      const [result] = await db.query(
-        'INSERT INTO users (username, email, password_hash, role, full_name, phone) VALUES (?, ?, ?, ?, ?, ?)',
-        [username, email, placeholderPasswordHash, 'student', full_name, '']
-      );
+    if (!dbUser) {
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert([{ username, email, password_hash: '', role: 'student', full_name, phone: '' }])
+        .select('*')
+        .single();
 
-      // Fetch the newly inserted user
-      const [newRows] = await db.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
-      mysqlUser = newRows[0];
+      if (insertError) throw insertError;
+      dbUser = newUser;
     }
 
-    // 3. Issue a standard backend JWT token
-    const backendToken = jwt.sign(
-      { userId: mysqlUser.id, role: mysqlUser.role, username: mysqlUser.username },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
-    );
+    const backendToken = signToken(dbUser);
 
     res.json({
       success: true,
       token: backendToken,
       user: {
-        id: mysqlUser.id,
-        username: mysqlUser.username,
-        email: mysqlUser.email,
-        role: mysqlUser.role,
-        full_name: mysqlUser.full_name,
-        wallet_balance: mysqlUser.wallet_balance
+        id: dbUser.id,
+        username: dbUser.username,
+        email: dbUser.email,
+        role: dbUser.role,
+        full_name: dbUser.full_name,
+        wallet_balance: dbUser.wallet_balance
       }
     });
-
   } catch (error) {
-    console.error('Supabase Login Sync Error:', error);
+    console.error('Supabase Login Error:', error);
     res.status(500).json({ success: false, message: 'Server error during social login.' });
   }
 };
-

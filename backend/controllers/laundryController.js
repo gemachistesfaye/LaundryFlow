@@ -1,12 +1,9 @@
-const db = require('../db');
+const supabase = require('../db');
 const crypto = require('crypto');
 
-// Generate unique tracking code
-const generateTrackingCode = () => {
-  return 'WASH-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-};
+const generateTrackingCode = () => 'WASH-' + crypto.randomBytes(4).toString('hex').toUpperCase();
 
-// POST /api/laundry/create — Student creates order
+// POST /api/laundry/create
 exports.createOrder = async (req, res) => {
   const { items, notes } = req.body;
   const studentId = req.user.userId;
@@ -19,20 +16,23 @@ exports.createOrder = async (req, res) => {
     const trackingCode = generateTrackingCode();
     const totalPrice = items.reduce((sum, item) => sum + (item.price || 5) * (item.quantity || 1), 0);
 
-    const [orderResult] = await db.query(
-      'INSERT INTO laundry_orders (student_id, tracking_code, total_price, item_count, notes) VALUES (?, ?, ?, ?, ?)',
-      [studentId, trackingCode, totalPrice, items.length, notes || '']
-    );
+    const { data: order, error: orderError } = await supabase
+      .from('laundry_orders')
+      .insert([{ student_id: studentId, tracking_code: trackingCode, total_price: totalPrice, item_count: items.length, notes: notes || '' }])
+      .select('id').single();
 
-    const orderId = orderResult.insertId;
+    if (orderError) throw orderError;
+    const orderId = order.id;
 
-    for (const item of items) {
-      const itemCode = trackingCode + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
-      await db.query(
-        'INSERT INTO clothes (order_id, item_name, quantity, tracking_code) VALUES (?, ?, ?, ?)',
-        [orderId, item.name, item.quantity || 1, itemCode]
-      );
-    }
+    const clothesRows = items.map(item => ({
+      order_id: orderId,
+      item_name: item.name,
+      quantity: item.quantity || 1,
+      tracking_code: trackingCode + '-' + crypto.randomBytes(2).toString('hex').toUpperCase()
+    }));
+
+    const { error: clothesError } = await supabase.from('clothes').insert(clothesRows);
+    if (clothesError) throw clothesError;
 
     res.status(201).json({
       success: true,
@@ -45,13 +45,16 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// GET /api/laundry/my-orders — Student views own orders
+// GET /api/laundry/my-orders
 exports.getMyOrders = async (req, res) => {
   try {
-    const [orders] = await db.query(
-      'SELECT * FROM laundry_orders WHERE student_id = ? ORDER BY created_at DESC',
-      [req.user.userId]
-    );
+    const { data: orders, error } = await supabase
+      .from('laundry_orders')
+      .select('*')
+      .eq('student_id', req.user.userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
     res.json({ success: true, orders });
   } catch (error) {
     console.error('Get Orders Error:', error);
@@ -59,42 +62,50 @@ exports.getMyOrders = async (req, res) => {
   }
 };
 
-// GET /api/laundry/all-orders — Admin views all orders
+// GET /api/laundry/all-orders
 exports.getAllOrders = async (req, res) => {
   try {
-    const [orders] = await db.query(
-      `SELECT o.*, u.full_name as student_name, w.full_name as worker_name
-       FROM laundry_orders o
-       LEFT JOIN users u ON o.student_id = u.id
-       LEFT JOIN users w ON o.worker_id = w.id
-       ORDER BY o.created_at DESC`
-    );
-    res.json({ success: true, orders });
+    const { data: orders, error } = await supabase
+      .from('laundry_orders')
+      .select(`*, student:users!laundry_orders_student_id_fkey(full_name), worker:users!laundry_orders_worker_id_fkey(full_name)`)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = (orders || []).map(o => ({
+      ...o,
+      student_name: o.student?.full_name || null,
+      worker_name: o.worker?.full_name || null
+    }));
+
+    res.json({ success: true, orders: mapped });
   } catch (error) {
     console.error('Get All Orders Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-// GET /api/laundry/worker-orders — Worker views assigned orders
+// GET /api/laundry/worker-orders
 exports.getWorkerOrders = async (req, res) => {
   try {
-    const [orders] = await db.query(
-      `SELECT o.*, u.full_name as student_name
-       FROM laundry_orders o
-       LEFT JOIN users u ON o.student_id = u.id
-       WHERE o.worker_id = ? AND o.status IN ('assigned', 'washing', 'drying', 'ready')
-       ORDER BY o.created_at DESC`,
-      [req.user.userId]
-    );
-    res.json({ success: true, orders });
+    const { data: orders, error } = await supabase
+      .from('laundry_orders')
+      .select(`*, student:users!laundry_orders_student_id_fkey(full_name)`)
+      .eq('worker_id', req.user.userId)
+      .in('status', ['assigned', 'washing', 'drying', 'ready'])
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = (orders || []).map(o => ({ ...o, student_name: o.student?.full_name || null }));
+    res.json({ success: true, orders: mapped });
   } catch (error) {
     console.error('Get Worker Orders Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 
-// PUT /api/laundry/update-status — Worker updates order status
+// PUT /api/laundry/update-status
 exports.updateStatus = async (req, res) => {
   const { order_id, status } = req.body;
   const validStatuses = ['washing', 'drying', 'ready'];
@@ -104,12 +115,11 @@ exports.updateStatus = async (req, res) => {
   }
 
   try {
-    await db.query('UPDATE laundry_orders SET status = ? WHERE id = ?', [status, order_id]);
-    await db.query('UPDATE clothes SET status = ? WHERE order_id = ?', [status, order_id]);
+    await supabase.from('laundry_orders').update({ status }).eq('id', order_id);
+    await supabase.from('clothes').update({ status }).eq('order_id', order_id);
 
-    // If status is "ready", create a delivery task
     if (status === 'ready') {
-      await db.query('INSERT INTO delivery_tasks (order_id) VALUES (?)', [order_id]);
+      await supabase.from('delivery_tasks').insert([{ order_id }]);
     }
 
     res.json({ success: true, message: `Order status updated to ${status}.` });
@@ -119,10 +129,15 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
-// GET /api/laundry/order/:id/items — Get items in an order
+// GET /api/laundry/order/:id/items
 exports.getOrderItems = async (req, res) => {
   try {
-    const [items] = await db.query('SELECT * FROM clothes WHERE order_id = ?', [req.params.id]);
+    const { data: items, error } = await supabase
+      .from('clothes')
+      .select('*')
+      .eq('order_id', req.params.id);
+
+    if (error) throw error;
     res.json({ success: true, items });
   } catch (error) {
     console.error('Get Items Error:', error);
