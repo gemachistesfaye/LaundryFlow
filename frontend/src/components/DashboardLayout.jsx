@@ -1,143 +1,164 @@
 import React, { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Bell, Search, Menu, X, Shirt, LogOut, LayoutDashboard, Settings, User, FileText, Truck, Users } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import AIChatbot from './AIChatbot';
+import {
+  Shirt, LayoutDashboard, Package, CreditCard, Truck,
+  Users, BarChart3, Settings, LogOut, Bell, Menu, X,
+  ChevronRight, Wrench, Bot
+} from 'lucide-react';
 
-const getNavigation = (role) => {
-  switch (role) {
-    case 'student': return [
-      { name: 'Dashboard', icon: LayoutDashboard, path: '/student/dashboard' },
-      { name: 'My Laundry', icon: Shirt, path: '/student/dashboard' },
-      { name: 'Payments', icon: FileText, path: '/student/dashboard' },
-    ];
-    case 'worker': return [
-      { name: 'Task Board', icon: LayoutDashboard, path: '/worker/dashboard' },
-      { name: 'Washing Queue', icon: Shirt, path: '/worker/dashboard' },
-    ];
-    case 'deliverer': return [
-      { name: 'Delivery Queue', icon: Truck, path: '/deliverer/dashboard' },
-    ];
-    case 'admin': return [
-      { name: 'Overview', icon: LayoutDashboard, path: '/admin/dashboard' },
-      { name: 'Users', icon: Users, path: '/admin/dashboard' },
-      { name: 'Settings', icon: Settings, path: '/admin/dashboard' },
-    ];
-    default: return [];
-  }
+const NAV_CONFIG = {
+  student: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/student/dashboard' },
+    { icon: Package, label: 'My Orders', path: '/student/dashboard' },
+    { icon: CreditCard, label: 'Payments', path: '/student/dashboard' },
+    { icon: Bot, label: 'AI Assistant', path: '/student/dashboard' },
+  ],
+  worker: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/worker/dashboard' },
+    { icon: Wrench, label: 'My Queue', path: '/worker/dashboard' },
+  ],
+  deliverer: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/deliverer/dashboard' },
+    { icon: Truck, label: 'Deliveries', path: '/deliverer/dashboard' },
+  ],
+  admin: [
+    { icon: LayoutDashboard, label: 'Overview', path: '/admin/dashboard' },
+    { icon: Package, label: 'All Orders', path: '/admin/dashboard' },
+    { icon: Users, label: 'Users', path: '/admin/dashboard' },
+    { icon: CreditCard, label: 'Payments', path: '/admin/dashboard' },
+    { icon: BarChart3, label: 'Analytics', path: '/admin/dashboard' },
+    { icon: Bot, label: 'AI Insights', path: '/admin/dashboard' },
+  ],
 };
 
-const DashboardLayout = ({ children, title }) => {
+const ROLE_COLORS = {
+  student: { color: '#818cf8', bg: 'rgba(99,102,241,0.15)', label: 'Student' },
+  worker:  { color: '#34d399', bg: 'rgba(16,185,129,0.15)', label: 'Worker' },
+  deliverer: { color: '#fb923c', bg: 'rgba(249,115,22,0.15)', label: 'Deliverer' },
+  admin:   { color: '#f472b6', bg: 'rgba(244,114,182,0.15)', label: 'Admin' },
+};
+
+export default function DashboardLayout({ children, title, activeTab }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
-  const navigation = getNavigation(user?.role);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
+  const role = user?.role || 'student';
+  const navLinks = NAV_CONFIG[role] || [];
+  const roleStyle = ROLE_COLORS[role] || ROLE_COLORS.student;
+
+  const SidebarContent = () => (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '0 12px' }}>
+      {/* Logo */}
+      <div style={{ padding: '20px 8px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Shirt size={18} color="white" />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#f1f5f9', letterSpacing: '-0.3px' }}>LaundryFlow</div>
+            <div style={{ fontSize: 10, color: 'rgba(241,245,249,0.35)', fontWeight: 500 }}>MANAGEMENT SYSTEM</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav Links */}
+      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(241,245,249,0.25)', letterSpacing: '1.5px', padding: '0 8px', marginBottom: 8 }}>NAVIGATION</div>
+        {navLinks.map((link, i) => {
+          const isActive = activeTab === link.label;
+          return (
+            <button key={i} onClick={() => { navigate(link.path); setSidebarOpen(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, border: isActive ? '1px solid rgba(99,102,241,0.25)' : '1px solid transparent', background: isActive ? 'rgba(99,102,241,0.12)' : 'transparent', color: isActive ? '#818cf8' : 'rgba(241,245,249,0.5)', fontSize: 13, fontWeight: isActive ? 600 : 500, cursor: 'pointer', width: '100%', textAlign: 'left', transition: 'all 0.2s', fontFamily: 'inherit' }}
+              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(241,245,249,0.8)'; } }}
+              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(241,245,249,0.5)'; } }}>
+              <link.icon size={16} />
+              {link.label}
+              {isActive && <ChevronRight size={14} style={{ marginLeft: 'auto' }} />}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* User Profile */}
+      <div style={{ padding: '16px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', marginBottom: 8 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: roleStyle.bg, border: `1px solid ${roleStyle.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14, fontWeight: 700, color: roleStyle.color }}>
+            {(user?.full_name || user?.username || 'U')[0].toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.full_name || user?.username}</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: roleStyle.color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{roleStyle.label}</div>
+          </div>
+        </div>
+        <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'rgba(239,68,68,0.7)', fontSize: 13, fontWeight: 500, cursor: 'pointer', width: '100%', transition: 'all 0.2s', fontFamily: 'inherit' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#f87171'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(239,68,68,0.7)'; }}>
+          <LogOut size={15} /> Sign Out
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans text-gray-900">
-      {/* Mobile sidebar backdrop */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-gray-900/50 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0a0f', fontFamily: 'Inter,sans-serif', color: '#f1f5f9' }}>
 
-      {/* Sidebar */}
-      <motion.aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-white border-r border-gray-200 shadow-sm flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      >
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-100">
-          <div className="flex items-center gap-2 text-indigo-600">
-            <Shirt className="h-6 w-6" />
-            <span className="font-extrabold text-xl tracking-tight text-gray-900">LaundryFlow</span>
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
+      {/* Desktop Sidebar */}
+      <aside style={{ width: 240, flexShrink: 0, background: 'rgba(10,10,15,0.95)', borderRight: '1px solid rgba(255,255,255,0.05)', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }} className="desktop-sidebar">
+        <SidebarContent />
+      </aside>
 
-        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          {navigation.map((item) => {
-            // Simplified active state check (can be improved with exact routing later)
-            const isActive = location.pathname === item.path || (item.name === 'Dashboard');
-            return (
-              <button
-                key={item.name}
-                onClick={() => { navigate(item.path); setSidebarOpen(false); }}
-                className={`flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-              >
-                <item.icon className={`mr-3 h-5 w-5 ${isActive ? 'text-indigo-600' : 'text-gray-400'}`} />
-                {item.name}
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={() => setSidebarOpen(false)} />
+          <aside style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 260, background: '#0f0f18', borderRight: '1px solid rgba(255,255,255,0.07)', zIndex: 201, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 16px 0' }}>
+              <button onClick={() => setSidebarOpen(false)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'rgba(241,245,249,0.5)' }}>
+                <X size={18} />
               </button>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-gray-100">
-          <div className="flex items-center p-3 bg-gray-50 rounded-xl mb-3">
-            <div className="h-9 w-9 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold">
-              {user?.full_name?.charAt(0)}
             </div>
-            <div className="ml-3 overflow-hidden">
-              <p className="text-sm font-semibold text-gray-900 truncate">{user?.full_name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
-            </div>
-          </div>
-          <button onClick={handleLogout} className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors">
-            <LogOut className="mr-3 h-5 w-5 opacity-70" />
-            Sign Out
-          </button>
+            <SidebarContent />
+          </aside>
         </div>
-      </motion.aside>
+      )}
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Navbar */}
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm z-30">
-          <div className="flex items-center flex-1">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden mr-4 text-gray-500 hover:text-gray-700 focus:outline-none">
-              <Menu className="h-6 w-6" />
+      {/* Main Content */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Top Header */}
+        <header style={{ padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(10,10,15,0.6)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 50 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <button onClick={() => setSidebarOpen(true)} className="mobile-menu-btn" style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, padding: '7px', cursor: 'pointer', color: 'rgba(241,245,249,0.6)', display: 'none' }}>
+              <Menu size={18} />
             </button>
-            <div className="hidden sm:block">
-              <h1 className="text-lg font-bold text-gray-900">{title}</h1>
+            <div>
+              <h1 style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.3px', lineHeight: 1 }}>{title || 'Dashboard'}</h1>
             </div>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input type="text" placeholder="Search orders..." className="pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white w-64 transition-all" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ padding: '4px 12px', borderRadius: 999, background: roleStyle.bg, border: `1px solid ${roleStyle.color}30`, fontSize: 11, fontWeight: 700, color: roleStyle.color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {roleStyle.label}
             </div>
-            <button className="relative p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: roleStyle.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: roleStyle.color }}>
+              {(user?.full_name || user?.username || 'U')[0].toUpperCase()}
+            </div>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-            {children}
-          </motion.div>
-        </main>
-      </div>
+        {/* Page Content */}
+        <div style={{ flex: 1, padding: '28px 28px', overflowY: 'auto' }} className="page-enter">
+          {children}
+        </div>
+      </main>
 
-      {/* Global AI Chat Widget */}
-      <AIChatbot />
+      <style>{`
+        @media (max-width: 768px) {
+          .desktop-sidebar { display: none !important; }
+          .mobile-menu-btn { display: flex !important; }
+        }
+      `}</style>
     </div>
   );
-};
-
-export default DashboardLayout;
+}

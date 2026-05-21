@@ -1,231 +1,296 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { getMyOrders, createOrder, getMyPayments, createPayment } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { Package, CreditCard, Wallet, Plus, X, Send, Bot, CheckCircle, Clock, Truck, Shirt } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
-import GreetingHeader from '../components/GreetingHeader';
+import { useAuth } from '../context/AuthContext';
+import { getMyOrders, createOrder, getMyPayments, createPayment, chatWithAI } from '../services/api';
 
-const StatusBadge = ({ status }) => {
-  const colors = {
-    submitted: { bg: '#fff3cd', color: '#856404' },
-    assigned: { bg: '#cce5ff', color: '#004085' },
-    washing: { bg: '#d4edda', color: '#155724' },
-    drying: { bg: '#d1ecf1', color: '#0c5460' },
-    ready: { bg: '#d4edda', color: '#155724' },
-    out_for_delivery: { bg: '#e2e3f1', color: '#383d6e' },
-    delivered: { bg: '#c3e6cb', color: '#1e7e34' },
-    cancelled: { bg: '#f5c6cb', color: '#721c24' },
-  };
-  const c = colors[status] || { bg: '#eee', color: '#333' };
-  return <span style={{ background: c.bg, color: c.color, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{status.replace(/_/g, ' ')}</span>;
-};
+const ITEMS = ['T-Shirt','Shirt','Pants','Jeans','Jacket','Dress','Shorts','Underwear','Socks','Hoodie','Sweater','Bedsheet'];
+const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',out_for_delivery:'#a78bfa',delivered:'#6ee7b7' };
+const STATUS_LABELS = { submitted:'Submitted',assigned:'Assigned',washing:'Washing',drying:'Drying',ready:'Ready',out_for_delivery:'Out for Delivery',delivered:'Delivered' };
 
-const StudentDashboard = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+const Stat = ({ icon: Icon, label, value, color }) => (
+  <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:20, padding:'22px 20px', display:'flex', alignItems:'center', gap:16 }}>
+    <div style={{ width:46, height:46, borderRadius:14, background:`${color}18`, border:`1px solid ${color}25`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+      <Icon size={20} color={color} />
+    </div>
+    <div>
+      <div style={{ fontSize:22, fontWeight:800, color:'#f1f5f9', letterSpacing:'-0.5px' }}>{value}</div>
+      <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)', fontWeight:500, marginTop:2 }}>{label}</div>
+    </div>
+  </div>
+);
+
+const Badge = ({ status }) => (
+  <span style={{ display:'inline-block', padding:'3px 10px', borderRadius:999, fontSize:11, fontWeight:700, letterSpacing:'0.3px', background:`${STATUS_COLORS[status] || '#818cf8'}18`, color: STATUS_COLORS[status] || '#818cf8', border:`1px solid ${STATUS_COLORS[status] || '#818cf8'}30` }}>
+    {STATUS_LABELS[status] || status}
+  </span>
+);
+
+export default function StudentDashboard() {
+  const { user } = useAuth();
+  const [tab, setTab] = useState('orders');
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [items, setItems] = useState([{ name: '', quantity: 1 }]);
-  const [paymentAmount, setPaymentAmount] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' or 'payments'
+  const [showOrder, setShowOrder] = useState(false);
+  const [showPay, setShowPay] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [msgs, setMsgs] = useState([{ from:'ai', text:"Hi! I'm your LaundryFlow assistant. Ask me about your orders, delivery times, or pricing!" }]);
+  const [input, setInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const chatRef = useRef(null);
 
-  useEffect(() => { fetchData(); }, []);
+  const showToast = (text, type='success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
 
-  const fetchData = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      const [oRes, pRes] = await Promise.all([getMyOrders(), getMyPayments()]);
-      setOrders(oRes.data.orders);
-      setPayments(pRes.data.payments);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      const [o, p] = await Promise.all([getMyOrders(), getMyPayments()]);
+      setOrders(o.data.orders || []);
+      setPayments(p.data.payments || []);
+    } catch { /* ignore */ }
+    setLoading(false);
   };
 
-  const handleAddItem = () => setItems([...items, { name: '', quantity: 1 }]);
-  const handleItemChange = (i, field, val) => {
-    const updated = [...items];
-    updated[i][field] = field === 'quantity' ? parseInt(val) || 1 : val;
-    setItems(updated);
-  };
+  useEffect(() => { load(); }, []);
+  useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; }, [msgs]);
 
-  const handleSubmitOrder = async (e) => {
-    e.preventDefault();
-    const validItems = items.filter(i => i.name.trim());
-    if (validItems.length === 0) return;
+  const addItem = (name) => {
+    const ex = cart.find(c => c.name === name);
+    if (ex) setCart(cart.map(c => c.name === name ? {...c, quantity: c.quantity+1} : c));
+    else setCart([...cart, { name, quantity:1, price:5 }]);
+  };
+  const removeItem = (name) => setCart(cart.filter(c => c.name !== name));
+
+  const submitOrder = async () => {
+    if (!cart.length) return;
+    setSubmitting(true);
     try {
-      await createOrder({ items: validItems, notes: '' });
-      setShowOrderModal(false);
-      setItems([{ name: '', quantity: 1 }]);
-      fetchData();
-    } catch (err) { alert('Failed to create order'); }
+      await createOrder({ items: cart, notes });
+      setShowOrder(false); setCart([]); setNotes('');
+      showToast('Order created successfully!');
+      load();
+    } catch (e) { showToast(e.response?.data?.message || 'Error creating order', 'error'); }
+    setSubmitting(false);
   };
 
-  const handleSubmitPayment = async (e) => {
-    e.preventDefault();
-    if (!paymentAmount) return;
+  const submitPay = async (order_id, amount) => {
     try {
-      // Find an unpaid order to attach the payment to, or just make a general payment (order_id null if general, but schema requires order_id currently? Let's just use the first pending order or a dummy if none)
-      const pendingOrder = orders.find(o => o.status !== 'delivered' && o.status !== 'cancelled');
-      if (!pendingOrder) return alert("You don't have any active orders to pay for.");
-      
-      await createPayment({ order_id: pendingOrder.id, amount: paymentAmount, payment_method: 'telebirr' });
-      setShowPaymentModal(false);
-      setPaymentAmount('');
-      fetchData();
-      alert('Payment submitted for confirmation!');
-    } catch (err) { alert('Failed to submit payment'); }
+      await createPayment({ order_id, amount, payment_method: 'telebirr' });
+      setShowPay(null); showToast('Payment submitted!'); load();
+    } catch { showToast('Payment error', 'error'); }
   };
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const sendMsg = async () => {
+    if (!input.trim()) return;
+    const msg = input.trim(); setInput('');
+    setMsgs(m => [...m, { from:'user', text: msg }]);
+    setAiLoading(true);
+    try {
+      const res = await chatWithAI({ message: msg });
+      setMsgs(m => [...m, { from:'ai', text: res.data.reply }]);
+    } catch { setMsgs(m => [...m, { from:'ai', text:'Sorry, AI service unavailable.' }]); }
+    setAiLoading(false);
+  };
+
+  const activeOrders = orders.filter(o => !['delivered','cancelled'].includes(o.status));
 
   return (
-    <DashboardLayout title="Student Control Center">
-      <main className="max-w-5xl mx-auto">
-        <GreetingHeader name={user?.full_name} role={user?.role} />
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-          <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <p style={{ color: '#999', fontSize: 13, marginBottom: 4 }}>Wallet Balance</p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: '#667eea' }}>{user?.wallet_balance || 0} ETB</p>
-          </div>
-          <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <p style={{ color: '#999', fontSize: 13, marginBottom: 4 }}>Total Orders</p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: '#2ed573' }}>{orders.length}</p>
-          </div>
-          <div style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <p style={{ color: '#999', fontSize: 13, marginBottom: 4 }}>Pending Payments</p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: '#ffa502' }}>{payments.filter(p => p.status === 'pending').length}</p>
-          </div>
-        </div>
+    <DashboardLayout title={`Welcome, ${user?.full_name?.split(' ')[0] || 'Student'} 👋`} activeTab="Dashboard">
+      {/* Stats */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:16, marginBottom:28 }}>
+        <Stat icon={Package} label="Total Orders" value={orders.length} color="#6366f1" />
+        <Stat icon={Clock} label="Active Orders" value={activeOrders.length} color="#f59e0b" />
+        <Stat icon={CheckCircle} label="Delivered" value={orders.filter(o=>o.status==='delivered').length} color="#10b981" />
+        <Stat icon={Wallet} label="Wallet Balance" value={`${user?.wallet_balance || 0} ETB`} color="#06b6d4" />
+      </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-          <button onClick={() => setShowOrderModal(true)} style={{ background: '#667eea', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-            + New Laundry Request
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:8, marginBottom:24, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:14, padding:6, width:'fit-content' }}>
+        {['orders','payments','ai'].map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            style={{ padding:'8px 20px', borderRadius:10, border:'none', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s', background: tab===t ? 'rgba(99,102,241,0.2)' : 'transparent', color: tab===t ? '#818cf8' : 'rgba(241,245,249,0.45)' }}>
+            {t === 'orders' ? '📦 Orders' : t === 'payments' ? '💳 Payments' : '🤖 AI Chat'}
           </button>
-          <button onClick={() => setShowPaymentModal(true)} style={{ background: '#1dd1a1', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-            💳 Add Funds / Pay
-          </button>
-        </div>
+        ))}
+      </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 20, marginBottom: 16, borderBottom: '1px solid #ddd' }}>
-          <button onClick={() => setActiveTab('orders')} style={{ padding: '8px 16px', background: 'none', border: 'none', borderBottom: activeTab === 'orders' ? '3px solid #667eea' : '3px solid transparent', fontWeight: 600, fontSize: 15, cursor: 'pointer', color: activeTab === 'orders' ? '#333' : '#999' }}>My Orders</button>
-          <button onClick={() => setActiveTab('payments')} style={{ padding: '8px 16px', background: 'none', border: 'none', borderBottom: activeTab === 'payments' ? '3px solid #667eea' : '3px solid transparent', fontWeight: 600, fontSize: 15, cursor: 'pointer', color: activeTab === 'payments' ? '#333' : '#999' }}>Payment History</button>
-        </div>
-
-        {/* Content */}
-        <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          {activeTab === 'orders' ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa', fontSize: 13, color: '#666' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Tracking Code</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Items</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="5" style={{ textAlign: 'center', padding: 30, color: '#999' }}>Loading...</td></tr>
-                ) : orders.length === 0 ? (
-                  <tr><td colSpan="5" style={{ textAlign: 'center', padding: 30, color: '#999' }}>No orders yet. Submit your first laundry request!</td></tr>
-                ) : orders.map(order => (
-                  <tr key={order.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#667eea' }}>{order.tracking_code}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#666' }}>{new Date(order.created_at).toLocaleDateString()}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13 }}>{order.item_count} items</td>
-                    <td style={{ padding: '12px 16px' }}><StatusBadge status={order.status} /></td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700 }}>{order.total_price} ETB</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Orders Tab */}
+      {tab === 'orders' && (
+        <div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <h2 style={{ fontSize:16, fontWeight:700, color:'#f1f5f9' }}>My Laundry Orders</h2>
+            <button onClick={() => setShowOrder(true)} style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 18px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', fontWeight:700, fontSize:13, cursor:'pointer', boxShadow:'0 4px 16px rgba(99,102,241,0.3)', fontFamily:'inherit' }}>
+              <Plus size={15} /> New Order
+            </button>
+          </div>
+          {loading ? (
+            <div style={{ textAlign:'center', padding:60, color:'rgba(241,245,249,0.3)' }}>Loading orders...</div>
+          ) : orders.length === 0 ? (
+            <div style={{ textAlign:'center', padding:60, background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:20 }}>
+              <Shirt size={48} color="rgba(241,245,249,0.15)" style={{ margin:'0 auto 16px', display:'block' }} />
+              <p style={{ color:'rgba(241,245,249,0.4)', marginBottom:16 }}>No orders yet. Start your first laundry order!</p>
+              <button onClick={() => setShowOrder(true)} style={{ padding:'10px 24px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>Create Order</button>
+            </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa', fontSize: 13, color: '#666' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Order Tracking</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Method</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.length === 0 ? (
-                  <tr><td colSpan="5" style={{ textAlign: 'center', padding: 30, color: '#999' }}>No payment history.</td></tr>
-                ) : payments.map(payment => (
-                  <tr key={payment.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#666' }}>{new Date(payment.created_at).toLocaleDateString()}</td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', color: '#667eea' }}>{payment.tracking_code || 'N/A'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, textTransform: 'capitalize' }}>{payment.payment_method}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#fff', background: payment.status === 'confirmed' ? '#1dd1a1' : payment.status === 'pending' ? '#ffa502' : '#ff4757' }}>
-                        {payment.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700 }}>{payment.amount} ETB</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              {orders.map(o => (
+                <motion.div key={o.id} initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }}
+                  style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                      <span style={{ fontWeight:700, color:'#f1f5f9', fontSize:14 }}>{o.tracking_code}</span>
+                      <Badge status={o.status} />
+                    </div>
+                    <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)' }}>{o.item_count} items · {o.total_price} ETB · {new Date(o.created_at).toLocaleDateString()}</div>
+                  </div>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                    {o.status === 'submitted' && (
+                      <button onClick={() => setShowPay(o)} style={{ padding:'7px 14px', borderRadius:10, border:'1px solid rgba(99,102,241,0.3)', background:'rgba(99,102,241,0.1)', color:'#818cf8', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                        Pay Now
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           )}
         </div>
-      </main>
+      )}
 
-      {/* New Order Modal */}
-      {showOrderModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 450, maxHeight: '80vh', overflow: 'auto' }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>New Laundry Request</h2>
-            <form onSubmit={handleSubmitOrder}>
-              {items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                  <input placeholder="Item name (e.g. T-shirt)" value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)}
-                    style={{ flex: 1, padding: '8px 12px', border: '1.5px solid #ddd', borderRadius: 6, fontSize: 14 }} />
-                  <input type="number" min="1" value={item.quantity} onChange={e => handleItemChange(i, 'quantity', e.target.value)}
-                    style={{ width: 60, padding: '8px', border: '1.5px solid #ddd', borderRadius: 6, fontSize: 14, textAlign: 'center' }} />
-                </div>
-              ))}
-              <button type="button" onClick={handleAddItem} style={{ background: 'none', color: '#667eea', border: '1.5px dashed #667eea', padding: '8px', borderRadius: 6, width: '100%', cursor: 'pointer', marginBottom: 16, fontSize: 13 }}>
-                + Add another item
-              </button>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={() => setShowOrderModal(false)} style={{ flex: 1, padding: 10, background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ flex: 1, padding: 10, background: '#667eea', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>Submit Order</button>
+      {/* Payments Tab */}
+      {tab === 'payments' && (
+        <div>
+          <h2 style={{ fontSize:16, fontWeight:700, color:'#f1f5f9', marginBottom:16 }}>Payment History</h2>
+          {payments.length === 0 ? (
+            <div style={{ textAlign:'center', padding:60, background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:20 }}>
+              <CreditCard size={48} color="rgba(241,245,249,0.15)" style={{ margin:'0 auto 16px', display:'block' }} />
+              <p style={{ color:'rgba(241,245,249,0.4)' }}>No payment history yet.</p>
+            </div>
+          ) : (
+            <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, overflow:'hidden' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                    {['Order','Amount','Method','Status','Date'].map(h => (
+                      <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:700, color:'rgba(241,245,249,0.35)', textTransform:'uppercase', letterSpacing:'0.8px' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map(p => (
+                    <tr key={p.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                      <td style={{ padding:'14px 16px', fontSize:13, color:'#f1f5f9', fontWeight:600 }}>{p.tracking_code || '—'}</td>
+                      <td style={{ padding:'14px 16px', fontSize:13, color:'#34d399', fontWeight:700 }}>{p.amount} ETB</td>
+                      <td style={{ padding:'14px 16px', fontSize:13, color:'rgba(241,245,249,0.5)', textTransform:'capitalize' }}>{p.payment_method}</td>
+                      <td style={{ padding:'14px 16px' }}><Badge status={p.status} /></td>
+                      <td style={{ padding:'14px 16px', fontSize:12, color:'rgba(241,245,249,0.35)' }}>{new Date(p.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI Tab */}
+      {tab === 'ai' && (
+        <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:20, overflow:'hidden', display:'flex', flexDirection:'column', height:480 }}>
+          <div style={{ padding:'16px 20px', borderBottom:'1px solid rgba(255,255,255,0.05)', display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:36, height:36, borderRadius:10, background:'rgba(99,102,241,0.15)', display:'flex', alignItems:'center', justifyContent:'center' }}><Bot size={18} color="#818cf8" /></div>
+            <div><div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>LaundryFlow AI</div><div style={{ fontSize:11, color:'#34d399' }}>● Online</div></div>
+          </div>
+          <div ref={chatRef} style={{ flex:1, overflowY:'auto', padding:20, display:'flex', flexDirection:'column', gap:12 }}>
+            {msgs.map((m, i) => (
+              <div key={i} style={{ display:'flex', justifyContent: m.from==='user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{ maxWidth:'75%', padding:'10px 14px', borderRadius: m.from==='user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: m.from==='user' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,0.06)', border: m.from==='ai' ? '1px solid rgba(255,255,255,0.08)' : 'none', fontSize:13, color:'#f1f5f9', lineHeight:1.6 }}>{m.text}</div>
               </div>
-            </form>
+            ))}
+            {aiLoading && <div style={{ display:'flex', justifyContent:'flex-start' }}><div style={{ padding:'10px 16px', borderRadius:16, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', fontSize:13, color:'rgba(241,245,249,0.4)' }}>Thinking...</div></div>}
+          </div>
+          <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,0.05)', display:'flex', gap:10 }}>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==='Enter' && sendMsg()} placeholder="Ask about your laundry..." style={{ flex:1, padding:'10px 14px', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, color:'#f1f5f9', fontSize:13, fontFamily:'inherit', outline:'none' }} />
+            <button onClick={sendMsg} style={{ padding:'10px 16px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', cursor:'pointer', display:'flex', alignItems:'center' }}><Send size={15} /></button>
           </div>
         </div>
       )}
 
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 400 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Submit Payment</h2>
-            <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>Transfer funds to <strong>CBE: 1000123456789</strong> or <strong>Telebirr: 0911234567</strong>, then enter the amount here for admin approval.</p>
-            <form onSubmit={handleSubmitPayment}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Amount Paid (ETB)</label>
-                <input type="number" min="1" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} required
-                  style={{ width: '100%', padding: '10px', border: '1.5px solid #ddd', borderRadius: 6, fontSize: 15, boxSizing: 'border-box' }} />
+      {/* Create Order Modal */}
+      {showOrder && (
+        <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,0.75)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <motion.div initial={{ opacity:0, scale:0.92 }} animate={{ opacity:1, scale:1 }} style={{ background:'#111118', border:'1px solid rgba(255,255,255,0.08)', borderRadius:24, padding:28, width:'100%', maxWidth:500, maxHeight:'85vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:20 }}>
+              <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9' }}>New Laundry Order</h2>
+              <button onClick={() => { setShowOrder(false); setCart([]); }} style={{ background:'rgba(255,255,255,0.06)', border:'none', borderRadius:8, padding:6, cursor:'pointer', color:'rgba(241,245,249,0.5)' }}><X size={18} /></button>
+            </div>
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'rgba(241,245,249,0.35)', marginBottom:10, letterSpacing:'0.8px' }}>SELECT ITEMS</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                {ITEMS.map(item => (
+                  <button key={item} onClick={() => addItem(item)} style={{ padding:'7px 14px', borderRadius:10, border:'1px solid rgba(99,102,241,0.25)', background: cart.find(c=>c.name===item) ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)', color: cart.find(c=>c.name===item) ? '#818cf8' : 'rgba(241,245,249,0.6)', fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s' }}>{item}</button>
+                ))}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={() => setShowPaymentModal(false)} style={{ flex: 1, padding: 10, background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ flex: 1, padding: 10, background: '#1dd1a1', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>Submit</button>
+            </div>
+            {cart.length > 0 && (
+              <div style={{ marginBottom:16, background:'rgba(255,255,255,0.03)', borderRadius:14, padding:14, border:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'rgba(241,245,249,0.35)', marginBottom:10, letterSpacing:'0.8px' }}>YOUR CART</div>
+                {cart.map(c => (
+                  <div key={c.name} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                    <span style={{ fontSize:13, color:'#f1f5f9', fontWeight:500 }}>{c.name} × {c.quantity}</span>
+                    <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                      <span style={{ fontSize:12, color:'rgba(241,245,249,0.4)' }}>{c.quantity * c.price} ETB</span>
+                      <button onClick={() => removeItem(c.name)} style={{ background:'rgba(239,68,68,0.1)', border:'none', borderRadius:6, padding:'3px 7px', color:'#f87171', cursor:'pointer', fontSize:12, fontFamily:'inherit' }}>✕</button>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:10, marginTop:6, display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontWeight:700, fontSize:14, color:'#f1f5f9' }}>Total</span>
+                  <span style={{ fontWeight:800, fontSize:14, color:'#34d399' }}>{cart.reduce((s,c) => s+c.quantity*c.price, 0)} ETB</span>
+                </div>
               </div>
-            </form>
-          </div>
+            )}
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Special instructions (optional)..." rows={2}
+              style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, color:'#f1f5f9', fontSize:13, fontFamily:'inherit', outline:'none', resize:'none', marginBottom:16, boxSizing:'border-box' }} />
+            <button onClick={submitOrder} disabled={!cart.length || submitting} style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', background: cart.length ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(99,102,241,0.3)', color:'white', fontWeight:700, fontSize:14, cursor: cart.length ? 'pointer' : 'not-allowed', fontFamily:'inherit' }}>
+              {submitting ? 'Submitting...' : `Submit Order (${cart.reduce((s,c)=>s+c.quantity,0)} items)`}
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Pay Modal */}
+      {showPay && (
+        <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,0.75)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <motion.div initial={{ opacity:0, scale:0.92 }} animate={{ opacity:1, scale:1 }} style={{ background:'#111118', border:'1px solid rgba(255,255,255,0.08)', borderRadius:24, padding:28, width:'100%', maxWidth:400 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:20 }}>
+              <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9' }}>Pay for Order</h2>
+              <button onClick={() => setShowPay(null)} style={{ background:'rgba(255,255,255,0.06)', border:'none', borderRadius:8, padding:6, cursor:'pointer', color:'rgba(241,245,249,0.5)' }}><X size={18} /></button>
+            </div>
+            <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:14, padding:16, marginBottom:20 }}>
+              <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)', marginBottom:6 }}>Order</div>
+              <div style={{ fontSize:16, fontWeight:700, color:'#818cf8', marginBottom:4 }}>{showPay.tracking_code}</div>
+              <div style={{ fontSize:13, color:'rgba(241,245,249,0.5)' }}>{showPay.item_count} items</div>
+              <div style={{ fontSize:22, fontWeight:900, color:'#34d399', marginTop:10 }}>{showPay.total_price} ETB</div>
+            </div>
+            <p style={{ fontSize:13, color:'rgba(241,245,249,0.4)', marginBottom:20, lineHeight:1.6 }}>Payment will be submitted for admin confirmation. You can pay via Telebirr or CBE.</p>
+            <button onClick={() => submitPay(showPay.id, showPay.total_price)} style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#10b981,#059669)', color:'white', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(16,185,129,0.3)' }}>
+              ✓ Confirm Payment
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, padding:'14px 20px', borderRadius:14, fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:10, boxShadow:'0 20px 60px rgba(0,0,0,0.5)', background: toast.type==='success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${toast.type==='success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`, color: toast.type==='success' ? '#6ee7b7' : '#fca5a5' }}>
+          {toast.type === 'success' ? <CheckCircle size={16} /> : <X size={16} />} {toast.text}
         </div>
       )}
     </DashboardLayout>
   );
-};
-
-export default StudentDashboard;
+}
