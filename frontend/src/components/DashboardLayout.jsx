@@ -9,10 +9,9 @@ import {
 
 const NAV_CONFIG = {
   student: [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/student/dashboard' },
-    { icon: Package, label: 'My Orders', path: '/student/dashboard' },
-    { icon: CreditCard, label: 'Payments', path: '/student/dashboard' },
-    { icon: Bot, label: 'AI Assistant', path: '/student/dashboard' },
+    { icon: Package, label: 'My Orders', path: '/student/dashboard?tab=orders' },
+    { icon: CreditCard, label: 'Payments', path: '/student/dashboard?tab=payments' },
+    { icon: Bot, label: 'AI Assistant', path: '/student/dashboard?tab=ai' },
   ],
   worker: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/worker/dashboard' },

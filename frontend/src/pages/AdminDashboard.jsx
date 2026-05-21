@@ -71,21 +71,7 @@ export default function AdminDashboard() {
 
   return (
     <DashboardLayout title="Admin Control Center" activeTab={tabLabelMap[tab] || 'Overview'}>
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:8, marginBottom:24, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:14, padding:6, width:'fit-content', overflowX:'auto' }}>
-        {[
-          { id:'overview', icon:Activity, label:'Overview' },
-          { id:'orders', icon:Package, label:'Orders' },
-          { id:'users', icon:Users, label:'Users & Staff' },
-          { id:'payments', icon:CreditCard, label:'Payments' },
-          { id:'ai', icon:Bot, label:'AI Insights' }
-        ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, border:'none', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s', background: tab===t.id ? 'rgba(99,102,241,0.2)' : 'transparent', color: tab===t.id ? '#818cf8' : 'rgba(241,245,249,0.45)' }}>
-            <t.icon size={15} /> {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Local Tab Bar Removed - Navigation handled by Sidebar */}
 
       {loading ? (
         <div style={{ textAlign:'center', padding:80, color:'rgba(241,245,249,0.3)' }}>Loading dashboard data...</div>

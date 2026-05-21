@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { Package, CreditCard, Wallet, Plus, X, Send, Bot, CheckCircle, Clock, Truck, Shirt } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
@@ -29,7 +30,9 @@ const Badge = ({ status }) => (
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const [tab, setTab] = useState('orders');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') || 'orders';
+  const setTab = (newTab) => setSearchParams({ tab: newTab });
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,7 @@ export default function StudentDashboard() {
   const activeOrders = orders.filter(o => !['delivered','cancelled'].includes(o.status));
 
   return (
-    <DashboardLayout title={`Welcome, ${user?.full_name?.split(' ')[0] || 'Student'} 👋`} activeTab="Dashboard">
+    <DashboardLayout title={`Welcome, ${user?.full_name?.split(' ')[0] || 'Student'} 👋`} activeTab={tab === 'orders' ? 'My Orders' : tab === 'payments' ? 'Payments' : tab === 'ai' ? 'AI Assistant' : 'Dashboard'}>
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:16, marginBottom:28 }}>
         <Stat icon={Package} label="Total Orders" value={orders.length} color="#6366f1" />
@@ -109,15 +112,7 @@ export default function StudentDashboard() {
         <Stat icon={Wallet} label="Wallet Balance" value={`${user?.wallet_balance || 0} ETB`} color="#06b6d4" />
       </div>
 
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:8, marginBottom:24, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:14, padding:6, width:'fit-content' }}>
-        {['orders','payments','ai'].map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            style={{ padding:'8px 20px', borderRadius:10, border:'none', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s', background: tab===t ? 'rgba(99,102,241,0.2)' : 'transparent', color: tab===t ? '#818cf8' : 'rgba(241,245,249,0.45)' }}>
-            {t === 'orders' ? '📦 Orders' : t === 'payments' ? '💳 Payments' : '🤖 AI Chat'}
-          </button>
-        ))}
-      </div>
+      {/* Local Tabs Removed - Navigation handled by Sidebar */}
 
       {/* Orders Tab */}
       {tab === 'orders' && (
