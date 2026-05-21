@@ -23,12 +23,11 @@ const NAV_CONFIG = {
     { icon: Truck, label: 'Deliveries', path: '/deliverer/dashboard' },
   ],
   admin: [
-    { icon: LayoutDashboard, label: 'Overview', path: '/admin/dashboard' },
-    { icon: Package, label: 'All Orders', path: '/admin/dashboard' },
-    { icon: Users, label: 'Users', path: '/admin/dashboard' },
-    { icon: CreditCard, label: 'Payments', path: '/admin/dashboard' },
-    { icon: BarChart3, label: 'Analytics', path: '/admin/dashboard' },
-    { icon: Bot, label: 'AI Insights', path: '/admin/dashboard' },
+    { icon: LayoutDashboard, label: 'Overview', path: '/admin/dashboard?tab=overview' },
+    { icon: Package, label: 'All Orders', path: '/admin/dashboard?tab=orders' },
+    { icon: Users, label: 'Users', path: '/admin/dashboard?tab=users' },
+    { icon: CreditCard, label: 'Payments', path: '/admin/dashboard?tab=payments' },
+    { icon: Bot, label: 'AI Insights', path: '/admin/dashboard?tab=ai' },
   ],
 };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { Users, Package, CreditCard, Bot, Activity, CheckCircle, X, Plus, UserPlus, TrendingUp, Clock, Wrench, Truck } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { getAnalytics, getAllOrders, getAllUsers, getAllPayments, createWorker, createDeliverer, assignWorker, assignDeliverer, confirmPayment, getAIInsights } from '../services/api';
@@ -13,7 +14,10 @@ const Badge = ({ status }) => (
 );
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') || 'overview';
+  const setTab = (newTab) => setSearchParams({ tab: newTab });
+  
   const [data, setData] = useState({ analytics:{}, orders:[], users:[], payments:[], insights:[] });
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(null);
@@ -63,8 +67,10 @@ export default function AdminDashboard() {
   const workers = data.users.filter(u => u.role === 'worker');
   const deliverers = data.users.filter(u => u.role === 'deliverer');
 
+  const tabLabelMap = { overview: 'Overview', orders: 'All Orders', users: 'Users', payments: 'Payments', ai: 'AI Insights' };
+
   return (
-    <DashboardLayout title="Admin Control Center" activeTab="Overview">
+    <DashboardLayout title="Admin Control Center" activeTab={tabLabelMap[tab] || 'Overview'}>
       {/* Tabs */}
       <div style={{ display:'flex', gap:8, marginBottom:24, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:14, padding:6, width:'fit-content', overflowX:'auto' }}>
         {[
