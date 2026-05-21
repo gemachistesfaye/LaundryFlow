@@ -1,347 +1,267 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { getAllUsers, getAnalytics, getAllOrders, createWorker, createDeliverer, assignWorker, assignDeliverer, getAllPayments, confirmPayment, getAIInsights } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Users, Package, CreditCard, Bot, Activity, CheckCircle, X, Plus, UserPlus, TrendingUp } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import { getAnalytics, getAllOrders, getAllUsers, getAllPayments, createWorker, createDeliverer, assignWorker, assignDeliverer, confirmPayment, getAIInsights } from '../services/api';
 
-const AdminDashboard = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [tab, setTab] = useState('analytics');
-  const [analytics, setAnalytics] = useState({});
-  const [users, setUsers] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [aiInsights, setAiInsights] = useState([]);
-  const [showCreateModal, setShowCreateModal] = useState(null); // 'worker' or 'deliverer'
-  const [form, setForm] = useState({ username: '', email: '', password: '', full_name: '', phone: '' });
-  const [msg, setMsg] = useState('');
+const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',out_for_delivery:'#a78bfa',delivered:'#6ee7b7',pending:'#fbbf24',confirmed:'#10b981',rejected:'#ef4444' };
 
-  useEffect(() => { loadData(); }, []);
+const Badge = ({ status }) => (
+  <span style={{ padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:700, background:`${STATUS_COLORS[status]||'#818cf8'}18`, color:STATUS_COLORS[status]||'#818cf8', border:`1px solid ${STATUS_COLORS[status]||'#818cf8'}30`, textTransform:'uppercase' }}>
+    {status.replace(/_/g, ' ')}
+  </span>
+);
 
-  const loadData = async () => {
+export default function AdminDashboard() {
+  const [tab, setTab] = useState('overview');
+  const [data, setData] = useState({ analytics:{}, orders:[], users:[], payments:[], insights:[] });
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(null);
+  const [form, setForm] = useState({ username:'', email:'', password:'', full_name:'' });
+  const [toast, setToast] = useState(null);
+
+  const showToast = (text, type='success') => { setToast({ text, type }); setTimeout(() => setToast(null), 3000); };
+
+  const loadAll = async () => {
+    setLoading(true);
     try {
-      const [a, u, o, p, ai] = await Promise.all([getAnalytics(), getAllUsers(), getAllOrders(), getAllPayments(), getAIInsights()]);
-      setAnalytics(a.data.analytics);
-      setUsers(u.data.users);
-      setOrders(o.data.orders);
-      setPayments(p.data.payments);
-      setAiInsights(ai.data.insights || []);
-    } catch (err) { console.error(err); }
+      const [an, or, us, pa, ai] = await Promise.all([
+        getAnalytics(), getAllOrders(), getAllUsers(), getAllPayments(), getAIInsights()
+      ]);
+      setData({ analytics: an.data.analytics||{}, orders: or.data.orders||[], users: us.data.users||[], payments: pa.data.payments||[], insights: ai.data.insights||[] });
+    } catch { /* ignore */ }
+    setLoading(false);
   };
 
-  const handleCreateAccount = async (e) => {
+  useEffect(() => { loadAll(); }, []);
+
+  const handleCreateAccount = async (e, role) => {
     e.preventDefault();
-    setMsg('');
     try {
-      const fn = showCreateModal === 'worker' ? createWorker : createDeliverer;
-      const res = await fn(form);
-      if (res.data.success) {
-        setMsg(`${showCreateModal} created successfully!`);
-        setForm({ username: '', email: '', password: '', full_name: '', phone: '' });
-        loadData();
-        setTimeout(() => { setShowCreateModal(null); setMsg(''); }, 1500);
-      }
-    } catch (err) { setMsg(err.response?.data?.message || 'Error creating account.'); }
+      if (role === 'worker') await createWorker(form);
+      else await createDeliverer(form);
+      setShowModal(null); setForm({ username:'', email:'', password:'', full_name:'' });
+      showToast(`${role} account created!`); loadAll();
+    } catch (err) { showToast(err.response?.data?.message || 'Error creating account', 'error'); }
   };
 
-  const handleAssignWorker = async (orderId, workerId) => {
+  const handleAssign = async (orderId, userId, role) => {
     try {
-      await assignWorker({ order_id: orderId, worker_id: parseInt(workerId) });
-      loadData();
-    } catch (err) { alert('Failed to assign worker.'); }
+      if (role === 'worker') await assignWorker({ order_id: orderId, worker_id: userId });
+      else await assignDeliverer({ order_id: orderId, deliverer_id: userId });
+      showToast(`Assigned successfully`); loadAll();
+    } catch { showToast('Assignment failed', 'error'); }
   };
 
-  const handleAssignDeliverer = async (orderId, delivererId) => {
+  const handlePayment = async (paymentId, status) => {
     try {
-      await assignDeliverer({ order_id: orderId, deliverer_id: parseInt(delivererId) });
-      loadData();
-    } catch (err) { alert('Failed to assign deliverer.'); }
+      await confirmPayment({ payment_id: paymentId, status });
+      showToast(`Payment ${status}`); loadAll();
+    } catch { showToast('Error updating payment', 'error'); }
   };
 
-  const handleConfirmPayment = async (paymentId) => {
-    try {
-      await confirmPayment({ payment_id: paymentId, status: 'confirmed' });
-      loadData();
-    } catch (err) { alert('Failed to confirm payment.'); }
-  };
-
-  const handleRejectPayment = async (paymentId) => {
-    try {
-      await confirmPayment({ payment_id: paymentId, status: 'rejected' });
-      loadData();
-    } catch (err) { alert('Failed to reject payment.'); }
-  };
-
-  const handleLogout = () => { logout(); navigate('/login'); };
-
-  const tabs = ['analytics', 'orders', 'users', 'payments'];
+  const workers = data.users.filter(u => u.role === 'worker');
+  const deliverers = data.users.filter(u => u.role === 'deliverer');
 
   return (
-    <DashboardLayout title="Admin Overview">
-
-      {/* Tab Navigation */}
-      <div style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid #eee', display: 'flex', gap: 0 }}>
-        {tabs.map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            style={{ padding: '14px 24px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14, textTransform: 'capitalize',
-              color: tab === t ? '#667eea' : '#999', borderBottom: tab === t ? '3px solid #667eea' : '3px solid transparent' }}>
-            {t}
+    <DashboardLayout title="Admin Control Center" activeTab="Overview">
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:8, marginBottom:24, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:14, padding:6, width:'fit-content', overflowX:'auto' }}>
+        {[
+          { id:'overview', icon:Activity, label:'Overview' },
+          { id:'orders', icon:Package, label:'Orders' },
+          { id:'users', icon:Users, label:'Users & Staff' },
+          { id:'payments', icon:CreditCard, label:'Payments' },
+          { id:'ai', icon:Bot, label:'AI Insights' }
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, border:'none', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', transition:'all 0.2s', background: tab===t.id ? 'rgba(99,102,241,0.2)' : 'transparent', color: tab===t.id ? '#818cf8' : 'rgba(241,245,249,0.45)' }}>
+            <t.icon size={15} /> {t.label}
           </button>
         ))}
-        <div style={{ flex: 1 }} />
-        <button onClick={() => setShowCreateModal('worker')} style={{ margin: '8px 4px', background: '#e17055', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>+ Worker</button>
-        <button onClick={() => setShowCreateModal('deliverer')} style={{ margin: '8px 0', background: '#0984e3', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>+ Deliverer</button>
       </div>
 
-      <main style={{ maxWidth: 1100, margin: '24px auto', padding: '0 16px' }}>
-        {/* Analytics Tab */}
-        {tab === 'analytics' && (
+      {loading ? (
+        <div style={{ textAlign:'center', padding:80, color:'rgba(241,245,249,0.3)' }}>Loading dashboard data...</div>
+      ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-            {[
-              { label: 'Students', value: analytics.totalStudents, color: '#667eea' },
-              { label: 'Workers', value: analytics.totalWorkers, color: '#e17055' },
-              { label: 'Deliverers', value: analytics.totalDeliverers, color: '#0984e3' },
-              { label: 'Total Orders', value: analytics.totalOrders, color: '#2ed573' },
-              { label: 'Pending', value: analytics.pendingOrders, color: '#ffa502' },
-              { label: 'Completed', value: analytics.completedOrders, color: '#1dd1a1' },
-              { label: 'Revenue', value: `${analytics.totalRevenue || 0} ETB`, color: '#6c5ce7' },
-            ].map(stat => (
-              <div key={stat.label} style={{ background: '#fff', padding: 20, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: `4px solid ${stat.color}` }}>
-                <p style={{ color: '#999', fontSize: 12, marginBottom: 4 }}>{stat.label}</p>
-                <p style={{ fontSize: 26, fontWeight: 800, color: stat.color }}>{stat.value ?? 0}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* AI Insights Section */}
-          <div style={{ marginTop: 32, background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <div style={{ background: 'linear-gradient(to right, #667eea, #764ba2)', padding: '16px 24px', color: '#fff' }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>🤖</span> AI System Analytics & Predictions
-              </h2>
-            </div>
-            <div style={{ padding: '24px' }}>
-              {aiInsights.length === 0 ? <p style={{ color: '#999' }}>No AI insights available at the moment.</p> : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {aiInsights.map((insight, idx) => (
-                    <div key={idx} style={{ 
-                      padding: 16, borderRadius: 8, display: 'flex', gap: 12, alignItems: 'flex-start',
-                      background: insight.severity === 'warning' ? '#fff3cd' : insight.severity === 'success' ? '#d4edda' : '#e2e3f1',
-                      borderLeft: `4px solid ${insight.severity === 'warning' ? '#ffc107' : insight.severity === 'success' ? '#28a745' : '#667eea'}`
-                    }}>
-                      <span style={{ fontSize: 20 }}>{insight.severity === 'warning' ? '⚠️' : insight.severity === 'success' ? '📈' : '🔮'}</span>
-                      <div>
-                        <p style={{ fontWeight: 700, fontSize: 13, textTransform: 'capitalize', color: '#333', marginBottom: 2 }}>{insight.type.replace('_', ' ')}</p>
-                        <p style={{ fontSize: 14, color: '#555' }}>{insight.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-        )}
-
-        {/* Orders Tab */}
-        {tab === 'orders' && (
-          <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa', fontSize: 13, color: '#666' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Tracking</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Student</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Worker</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map(order => (
-                  <tr key={order.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#667eea' }}>{order.tracking_code}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13 }}>{order.student_name}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13 }}>{order.worker_name || '—'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, textTransform: 'capitalize', fontWeight: 600 }}>{order.status.replace(/_/g, ' ')}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      {order.status === 'submitted' && (
-                        users.filter(u => u.role === 'worker').length === 0 ? (
-                          <span style={{ fontSize: 12, color: '#999', fontStyle: 'italic' }}>No workers active</span>
-                        ) : (
-                          <select
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val) {
-                                handleAssignWorker(order.id, val);
-                              }
-                            }}
-                            defaultValue=""
-                            style={{
-                              padding: '6px 10px',
-                              borderRadius: 6,
-                              border: '1.5px solid #667eea',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: '#667eea',
-                              background: '#fff',
-                              cursor: 'pointer',
-                              outline: 'none'
-                            }}
-                          >
-                            <option value="" disabled>Assign Worker...</option>
-                            {users.filter(u => u.role === 'worker').map(w => (
-                              <option key={w.id} value={w.id}>
-                                {w.full_name}
-                              </option>
-                            ))}
-                          </select>
-                        )
-                      )}
-                      {order.status === 'ready' && (
-                        users.filter(u => u.role === 'deliverer').length === 0 ? (
-                          <span style={{ fontSize: 12, color: '#999', fontStyle: 'italic' }}>No deliverers active</span>
-                        ) : (
-                          <select
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val) {
-                                handleAssignDeliverer(order.id, val);
-                              }
-                            }}
-                            defaultValue=""
-                            style={{
-                              padding: '6px 10px',
-                              borderRadius: 6,
-                              border: '1.5px solid #0984e3',
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: '#0984e3',
-                              background: '#fff',
-                              cursor: 'pointer',
-                              outline: 'none'
-                            }}
-                          >
-                            <option value="" disabled>Send to Delivery...</option>
-                            {users.filter(u => u.role === 'deliverer').map(d => (
-                              <option key={d.id} value={d.id}>
-                                {d.full_name}
-                              </option>
-                            ))}
-                          </select>
-                        )
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Users Tab */}
-        {tab === 'users' && (
-          <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa', fontSize: 13, color: '#666' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>ID</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Name</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Username</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Role</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Joined</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '12px 16px', fontSize: 13 }}>{u.id}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600 }}>{u.full_name}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, fontFamily: 'monospace' }}>{u.username}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ padding: '2px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
-                        background: u.role === 'admin' ? '#1a1a2e' : u.role === 'worker' ? '#e17055' : u.role === 'deliverer' ? '#0984e3' : '#667eea',
-                        color: '#fff' }}>{u.role}</span>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#999' }}>{new Date(u.created_at).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Payments Tab */}
-        {tab === 'payments' && (
-          <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa', fontSize: 13, color: '#666' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Student</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Method</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'left' }}>Date</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.length === 0 ? (
-                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: 30, color: '#999' }}>No payments found.</td></tr>
-                ) : payments.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600 }}>{p.student_name}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, textTransform: 'capitalize' }}>{p.payment_method}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#999' }}>{new Date(p.created_at).toLocaleDateString()}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700 }}>{p.amount} ETB</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#fff', background: p.status === 'confirmed' ? '#1dd1a1' : p.status === 'pending' ? '#ffa502' : '#ff4757' }}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      {p.status === 'pending' && (
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button onClick={() => handleConfirmPayment(p.id)} style={{ background: '#1dd1a1', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>✓</button>
-                          <button onClick={() => handleRejectPayment(p.id)} style={{ background: '#ff4757', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>✗</button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </main>
-
-      {/* Create Worker/Deliverer Modal */}
-      {showCreateModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 420 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, textTransform: 'capitalize' }}>Create {showCreateModal} Account</h2>
-            {msg && <div style={{ padding: '10px', background: msg.includes('success') ? '#d4edda' : '#f8d7da', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{msg}</div>}
-            <form onSubmit={handleCreateAccount}>
-              {['full_name', 'username', 'email', 'phone', 'password'].map(f => (
-                <div key={f} style={{ marginBottom: 12 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4, textTransform: 'capitalize' }}>{f.replace('_', ' ')}</label>
-                  <input name={f} type={f === 'password' ? 'password' : f === 'email' ? 'email' : 'text'}
-                    value={form[f]} onChange={e => setForm({ ...form, [f]: e.target.value })}
-                    required={f !== 'phone'}
-                    style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #ddd', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+          {tab === 'overview' && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16 }}>
+              {[
+                { label:'Total Revenue', value:`${data.analytics.totalRevenue || 0} ETB`, icon:CreditCard, color:'#10b981' },
+                { label:'Total Orders', value:data.analytics.totalOrders || 0, icon:Package, color:'#6366f1' },
+                { label:'Pending Orders', value:data.analytics.pendingOrders || 0, icon:Clock, color:'#fbbf24' },
+                { label:'Total Students', value:data.analytics.totalStudents || 0, icon:Users, color:'#8b5cf6' },
+                { label:'Active Workers', value:data.analytics.totalWorkers || 0, icon:Wrench, color:'#22d3ee' },
+                { label:'Active Deliverers', value:data.analytics.totalDeliverers || 0, icon:Truck, color:'#f472b6' }
+              ].map((s,i) => (
+                <div key={i} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, padding:20, display:'flex', alignItems:'center', gap:14 }}>
+                  <div style={{ width:46, height:46, borderRadius:12, background:`${s.color}15`, border:`1px solid ${s.color}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <s.icon size={20} color={s.color} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize:22, fontWeight:800, color:'#f1f5f9' }}>{s.value}</div>
+                    <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)', fontWeight:500 }}>{s.label}</div>
+                  </div>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button type="button" onClick={() => { setShowCreateModal(null); setMsg(''); }} style={{ flex: 1, padding: 10, background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" style={{ flex: 1, padding: 10, background: showCreateModal === 'worker' ? '#e17055' : '#0984e3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>Create</button>
+            </div>
+          )}
+
+          {tab === 'orders' && (
+            <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, overflow:'hidden' }}>
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', minWidth:800 }}>
+                  <thead>
+                    <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ORDER</th>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>STUDENT</th>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>STATUS</th>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>WORKER</th>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.orders.map(o => (
+                      <tr key={o.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding:'12px 16px', fontSize:13, fontWeight:600, color:'#f1f5f9' }}>{o.tracking_code}</td>
+                        <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.6)' }}>{o.student_name}</td>
+                        <td style={{ padding:'12px 16px' }}><Badge status={o.status} /></td>
+                        <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.6)' }}>{o.worker_name || '—'}</td>
+                        <td style={{ padding:'12px 16px' }}>
+                          {o.status === 'submitted' && (
+                            <select onChange={e => handleAssign(o.id, e.target.value, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
+                              <option value="" disabled>Assign Worker...</option>
+                              {workers.map(w => <option key={w.id} value={w.id}>{w.full_name}</option>)}
+                            </select>
+                          )}
+                          {o.status === 'ready' && (
+                            <select onChange={e => handleAssign(o.id, e.target.value, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
+                              <option value="" disabled>Assign Deliverer...</option>
+                              {deliverers.map(d => <option key={d.id} value={d.id}>{d.full_name}</option>)}
+                            </select>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            </div>
+          )}
+
+          {tab === 'users' && (
+            <div>
+              <div style={{ display:'flex', gap:12, marginBottom:20 }}>
+                <button onClick={() => setShowModal('worker')} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 16px', borderRadius:10, background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', fontSize:13, fontWeight:600, cursor:'pointer' }}><UserPlus size={15} /> Add Worker</button>
+                <button onClick={() => setShowModal('deliverer')} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 16px', borderRadius:10, background:'rgba(249,115,22,0.15)', border:'1px solid rgba(249,115,22,0.3)', color:'#fb923c', fontSize:13, fontWeight:600, cursor:'pointer' }}><UserPlus size={15} /> Add Deliverer</button>
+              </div>
+              <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, overflow:'hidden' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>NAME</th>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ROLE</th>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>EMAIL</th>
+                      <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>BALANCE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.users.map(u => (
+                      <tr key={u.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding:'12px 16px', fontSize:13, fontWeight:600, color:'#f1f5f9' }}>{u.full_name}</td>
+                        <td style={{ padding:'12px 16px' }}>
+                          <span style={{ padding:'2px 8px', borderRadius:4, fontSize:10, fontWeight:700, textTransform:'uppercase', background: u.role==='student'?'rgba(99,102,241,0.15)':u.role==='worker'?'rgba(16,185,129,0.15)':u.role==='deliverer'?'rgba(249,115,22,0.15)':'rgba(244,114,182,0.15)', color: u.role==='student'?'#818cf8':u.role==='worker'?'#34d399':u.role==='deliverer'?'#fb923c':'#f472b6' }}>{u.role}</span>
+                        </td>
+                        <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.5)' }}>{u.email}</td>
+                        <td style={{ padding:'12px 16px', fontSize:13, color:'#f1f5f9' }}>{u.wallet_balance} ETB</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {tab === 'payments' && (
+            <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, overflow:'hidden' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                    <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ORDER / STUDENT</th>
+                    <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>AMOUNT</th>
+                    <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>STATUS</th>
+                    <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.payments.map(p => (
+                    <tr key={p.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                      <td style={{ padding:'12px 16px' }}>
+                        <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9' }}>{p.tracking_code || 'Wallet Deposit'}</div>
+                        <div style={{ fontSize:11, color:'rgba(241,245,249,0.4)' }}>{p.student_name}</div>
+                      </td>
+                      <td style={{ padding:'12px 16px', fontSize:13, fontWeight:700, color:'#10b981' }}>{p.amount} ETB</td>
+                      <td style={{ padding:'12px 16px' }}><Badge status={p.status} /></td>
+                      <td style={{ padding:'12px 16px', display:'flex', gap:8 }}>
+                        {p.status === 'pending' && (
+                          <>
+                            <button onClick={() => handlePayment(p.id, 'confirmed')} style={{ padding:'6px 10px', borderRadius:6, background:'rgba(16,185,129,0.15)', color:'#34d399', border:'1px solid rgba(16,185,129,0.3)', cursor:'pointer', fontSize:11, fontWeight:600 }}>Confirm</button>
+                            <button onClick={() => handlePayment(p.id, 'rejected')} style={{ padding:'6px 10px', borderRadius:6, background:'rgba(239,68,68,0.15)', color:'#f87171', border:'1px solid rgba(239,68,68,0.3)', cursor:'pointer', fontSize:11, fontWeight:600 }}>Reject</button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {tab === 'ai' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              {data.insights.map((ins, i) => (
+                <div key={i} style={{ padding:'20px', borderRadius:16, background: ins.severity==='warning' ? 'rgba(245,158,11,0.05)' : ins.severity==='success' ? 'rgba(16,185,129,0.05)' : 'rgba(99,102,241,0.05)', border:`1px solid ${ins.severity==='warning'?'rgba(245,158,11,0.2)':ins.severity==='success'?'rgba(16,185,129,0.2)':'rgba(99,102,241,0.2)'}`, display:'flex', gap:16 }}>
+                  <div style={{ width:40, height:40, borderRadius:10, background: ins.severity==='warning' ? 'rgba(245,158,11,0.2)' : ins.severity==='success' ? 'rgba(16,185,129,0.2)' : 'rgba(99,102,241,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <Bot size={20} color={ins.severity==='warning'?'#fbbf24':ins.severity==='success'?'#34d399':'#818cf8'} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:6, textTransform:'capitalize' }}>{ins.type.replace('_',' ')} Analysis</h3>
+                    <p style={{ fontSize:13, color:'rgba(241,245,249,0.6)', lineHeight:1.6 }}>{ins.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Create Account Modal */}
+      {showModal && (
+        <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <motion.div initial={{ opacity:0, scale:0.95 }} animate={{ opacity:1, scale:1 }} style={{ background:'#111118', border:'1px solid rgba(255,255,255,0.08)', borderRadius:20, padding:28, width:'100%', maxWidth:400 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:24 }}>
+              <h2 style={{ fontSize:18, fontWeight:700, color:'#f1f5f9', textTransform:'capitalize' }}>Create {showModal}</h2>
+              <button onClick={() => setShowModal(null)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'rgba(241,245,249,0.5)' }}><X size={18}/></button>
+            </div>
+            <form onSubmit={e => handleCreateAccount(e, showModal)} style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              {['full_name', 'username', 'email', 'password'].map(field => (
+                <div key={field}>
+                  <label style={{ fontSize:12, fontWeight:600, color:'rgba(241,245,249,0.5)', display:'block', marginBottom:6, textTransform:'capitalize' }}>{field.replace('_',' ')}</label>
+                  <input type={field==='password'?'password':'text'} value={form[field]} onChange={e => setForm({...form, [field]: e.target.value})} required style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#f1f5f9', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+                </div>
+              ))}
+              <button type="submit" style={{ width:'100%', padding:'12px', marginTop:8, borderRadius:10, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', fontWeight:700, border:'none', cursor:'pointer' }}>Create Account</button>
             </form>
-          </div>
+          </motion.div>
+        </div>
+      )}
+
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, padding:'14px 20px', borderRadius:14, fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:10, boxShadow:'0 20px 60px rgba(0,0,0,0.5)', background: toast.type==='success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border:`1px solid ${toast.type==='success'?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'}`, color: toast.type==='success' ? '#6ee7b7' : '#fca5a5' }}>
+          {toast.type==='success'?<CheckCircle size={16}/>:<X size={16}/>} {toast.text}
         </div>
       )}
     </DashboardLayout>
   );
-};
-
-export default AdminDashboard;
+}
