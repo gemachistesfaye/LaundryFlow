@@ -74,9 +74,25 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    let actualHash = user.password_hash;
+    let needsChange = false;
+    
+    if (actualHash.startsWith('FORCE_CHANGE:')) {
+      needsChange = true;
+      actualHash = actualHash.replace('FORCE_CHANGE:', '');
+    }
+
+    const isMatch = await bcrypt.compare(password, actualHash);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+    }
+
+    if (needsChange) {
+      return res.json({ 
+        success: true, 
+        requirePasswordChange: true, 
+        userId: user.id 
+      });
     }
 
     const token = signToken(user);
@@ -171,5 +187,23 @@ exports.supabaseLogin = async (req, res) => {
   } catch (error) {
     console.error('Supabase Login Error:', error);
     res.status(500).json({ success: false, message: 'Server error during social login.' });
+  }
+};
+
+// POST /api/auth/change-password
+exports.changePassword = async (req, res) => {
+  const { userId, newPassword } = req.body;
+  if (!userId || !newPassword) return res.status(400).json({ success: false, message: 'Missing fields.' });
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(newPassword, salt);
+
+    await supabase.from('users').update({ password_hash }).eq('id', userId);
+
+    res.json({ success: true, message: 'Password updated successfully. You can now login.' });
+  } catch (error) {
+    console.error('Change Password Error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };

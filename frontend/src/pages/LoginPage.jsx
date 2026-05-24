@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shirt, Eye, EyeOff, LogIn, AlertCircle, Zap } from 'lucide-react';
-import { login } from '../services/api';
+import { login, changePassword } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -10,6 +10,11 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+
   const navigate = useNavigate();
   const { user, loginUser, loginWithGoogle } = useAuth();
 
@@ -23,10 +28,25 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const res = await login(form);
-      if (res.data.success) loginUser(res.data.user, res.data.token);
+      if (requirePasswordChange) {
+        if (!newPassword || newPassword.length < 6) {
+          throw new Error('Password must be at least 6 characters.');
+        }
+        await changePassword({ userId, newPassword });
+        // Automatically login with new password
+        const res = await login({ username: form.username, password: newPassword });
+        if (res.data.success) loginUser(res.data.user, res.data.token);
+      } else {
+        const res = await login(form);
+        if (res.data.requirePasswordChange) {
+          setRequirePasswordChange(true);
+          setUserId(res.data.userId);
+        } else if (res.data.success) {
+          loginUser(res.data.user, res.data.token);
+        }
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid username or password.');
+      setError(err.message || err.response?.data?.message || 'Invalid username or password.');
     } finally { setLoading(false); }
   };
 
@@ -81,33 +101,55 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: 'rgba(241,245,249,0.65)', display: 'block', marginBottom: 8 }}>Username</label>
-              <input name="username" value={form.username} onChange={handleChange} required autoComplete="username"
-                placeholder="Enter your username" className="pro-input"
-                style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#f1f5f9', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' }}
-                onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
-                onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }} />
-            </div>
+            {!requirePasswordChange ? (
+              <>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: 'rgba(241,245,249,0.65)', display: 'block', marginBottom: 8 }}>Username</label>
+                  <input name="username" value={form.username} onChange={handleChange} required autoComplete="username"
+                    placeholder="Enter your username" className="pro-input"
+                    style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#f1f5f9', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' }}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }} />
+                </div>
 
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: 'rgba(241,245,249,0.65)', display: 'block', marginBottom: 8 }}>Password</label>
-              <div style={{ position: 'relative' }}>
-                <input name="password" type={showPass ? 'text' : 'password'} value={form.password} onChange={handleChange} required
-                  placeholder="Enter your password"
-                  style={{ width: '100%', padding: '12px 44px 12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#f1f5f9', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' }}
-                  onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }} />
-                <button type="button" onClick={() => setShowPass(s => !s)}
-                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(241,245,249,0.35)', padding: 0, display: 'flex' }}>
-                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: 'rgba(241,245,249,0.65)', display: 'block', marginBottom: 8 }}>Password</label>
+                  <div style={{ position: 'relative' }}>
+                    <input name="password" type={showPass ? 'text' : 'password'} value={form.password} onChange={handleChange} required
+                      placeholder="Enter your password"
+                      style={{ width: '100%', padding: '12px 44px 12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#f1f5f9', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' }}
+                      onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
+                      onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }} />
+                    <button type="button" onClick={() => setShowPass(s => !s)}
+                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(241,245,249,0.35)', padding: 0, display: 'flex' }}>
+                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div>
+                <p style={{ fontSize: 14, color: '#fca5a5', marginBottom: 16, background: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>
+                  You must set a new secure password before accessing your dashboard.
+                </p>
+                <label style={{ fontSize: 13, fontWeight: 600, color: 'rgba(241,245,249,0.65)', display: 'block', marginBottom: 8 }}>New Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input name="newPassword" type={showPass ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} required
+                    placeholder="Enter new password"
+                    style={{ width: '100%', padding: '12px 44px 12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, color: '#f1f5f9', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' }}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.1)'; }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }} />
+                  <button type="button" onClick={() => setShowPass(s => !s)}
+                    style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(241,245,249,0.35)', padding: 0, display: 'flex' }}>
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: '13px', borderRadius: 12, fontSize: 15, fontWeight: 700, background: loading ? 'rgba(99,102,241,0.5)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 20px rgba(99,102,241,0.3)', transition: 'all 0.2s', marginTop: 4 }}>
-              {loading ? <span className="spinner" /> : <><LogIn size={16} /> Sign In</>}
+              {loading ? <span className="spinner" /> : requirePasswordChange ? <>Update Password & Login</> : <><LogIn size={16} /> Sign In</>}
             </button>
           </form>
 

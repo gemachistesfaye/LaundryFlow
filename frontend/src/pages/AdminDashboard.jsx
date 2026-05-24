@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { Users, Package, CreditCard, Bot, Activity, CheckCircle, X, Plus, UserPlus, TrendingUp, Clock, Wrench, Truck } from 'lucide-react';
+import { Users, Package, CreditCard, Bot, Activity, CheckCircle, X, Plus, UserPlus, TrendingUp, Clock, Wrench, Truck, Trash2 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
-import { getAnalytics, getAllOrders, getAllUsers, getAllPayments, createWorker, createDeliverer, assignWorker, assignDeliverer, cancelOrder, confirmPayment, getAIInsights } from '../services/api';
+import { getAnalytics, getAllOrders, getAllUsers, getAllPayments, createWorker, createDeliverer, assignWorker, assignDeliverer, cancelOrder, removeUser, confirmPayment, getAIInsights } from '../services/api';
 
 const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',out_for_delivery:'#a78bfa',delivered:'#6ee7b7',pending:'#fbbf24',confirmed:'#10b981',rejected:'#ef4444' };
 
@@ -41,12 +41,26 @@ export default function AdminDashboard() {
 
   const handleCreateAccount = async (e, role) => {
     e.preventDefault();
+    if (!form.username || !form.password || !form.full_name) {
+      return showToast('Please fill all fields', 'error');
+    }
+    setLoading(true);
     try {
       if (role === 'worker') await createWorker(form);
       else await createDeliverer(form);
       setShowModal(null); setForm({ username:'', email:'', password:'', full_name:'' });
       showToast(`${role} account created!`); loadAll();
     } catch (err) { showToast(err.response?.data?.message || 'Error creating account', 'error'); }
+    finally { setLoading(false); }
+  };
+
+  const handleRemoveUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to permanently remove this user?')) return;
+    try {
+      await removeUser(userId);
+      showToast('User removed successfully');
+      loadAll();
+    } catch { showToast('Failed to remove user', 'error'); }
   };
 
   const handleAssign = async (orderId, userId, role) => {
@@ -241,6 +255,7 @@ export default function AdminDashboard() {
                       <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ROLE</th>
                       <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>EMAIL</th>
                       <th style={{ padding:'12px 16px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>BALANCE</th>
+                      <th style={{ padding:'12px 16px', textAlign:'right', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -252,6 +267,11 @@ export default function AdminDashboard() {
                         </td>
                         <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.5)' }}>{u.email}</td>
                         <td style={{ padding:'12px 16px', fontSize:13, color:'#f1f5f9' }}>{u.wallet_balance} ETB</td>
+                        <td style={{ padding:'12px 16px', textAlign:'right' }}>
+                          {u.role !== 'admin' && (
+                            <button onClick={() => handleRemoveUser(u.id)} style={{ padding:'6px', background:'transparent', border:'none', color:'rgba(239,68,68,0.7)', cursor:'pointer' }} title="Remove User"><Trash2 size={16} /></button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -322,13 +342,21 @@ export default function AdminDashboard() {
               <button onClick={() => setShowModal(null)} style={{ background:'transparent', border:'none', cursor:'pointer', color:'rgba(241,245,249,0.5)' }}><X size={18}/></button>
             </div>
             <form onSubmit={e => handleCreateAccount(e, showModal)} style={{ display:'flex', flexDirection:'column', gap:16 }}>
-              {['full_name', 'username', 'email', 'password'].map(field => (
-                <div key={field}>
-                  <label style={{ fontSize:12, fontWeight:600, color:'rgba(241,245,249,0.5)', display:'block', marginBottom:6, textTransform:'capitalize' }}>{field.replace('_',' ')}</label>
-                  <input type={field==='password'?'password':'text'} value={form[field]} onChange={e => setForm({...form, [field]: e.target.value})} required style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#f1f5f9', fontSize:13, outline:'none', boxSizing:'border-box' }} />
-                </div>
-              ))}
-              <button type="submit" style={{ width:'100%', padding:'12px', marginTop:8, borderRadius:10, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', fontWeight:700, border:'none', cursor:'pointer' }}>Create Account</button>
+              <div>
+                <label style={{ fontSize:12, fontWeight:600, color:'rgba(241,245,249,0.5)', display:'block', marginBottom:6 }}>Full Name</label>
+                <input type="text" value={form.full_name} onChange={e => setForm({...form, full_name: e.target.value})} required style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#f1f5f9', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize:12, fontWeight:600, color:'rgba(241,245,249,0.5)', display:'block', marginBottom:6 }}>Username</label>
+                <input type="text" value={form.username} onChange={e => setForm({...form, username: e.target.value})} required style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#f1f5f9', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize:12, fontWeight:600, color:'rgba(241,245,249,0.5)', display:'block', marginBottom:6 }}>Temporary Password</label>
+                <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#f1f5f9', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+              </div>
+              <button type="submit" disabled={loading} style={{ width:'100%', padding:'12px', marginTop:8, borderRadius:10, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', fontWeight:700, border:'none', cursor:'pointer' }}>
+                {loading ? 'Creating...' : 'Create Account'}
+              </button>
             </form>
           </motion.div>
         </div>
