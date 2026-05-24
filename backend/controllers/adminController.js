@@ -193,11 +193,26 @@ exports.assignDeliverer = async (req, res) => {
 exports.cancelOrder = async (req, res) => {
   const { order_id } = req.body;
   try {
-    const { data: orderData } = await supabase.from('laundry_orders').update({ status: 'cancelled' }).eq('id', order_id).select('student_id, tracking_code').single();
+    // 1. Get order details for notification
+    const { data: orderData } = await supabase.from('laundry_orders')
+      .select('student_id, tracking_code')
+      .eq('id', order_id)
+      .single();
+
     if (orderData) {
-      await supabase.from('notifications').insert([{ user_id: orderData.student_id, title: 'Order Cancelled', message: "Your order ${orderData.tracking_code} has been cancelled by the admin.", type: 'system' }]);
+      // 2. Notify student
+      await supabase.from('notifications').insert([{ 
+        user_id: orderData.student_id, 
+        title: 'Order Cancelled', 
+        message: `Your order ${orderData.tracking_code} has been cancelled and removed by the admin.`, 
+        type: 'system' 
+      }]);
     }
-    res.json({ success: true, message: 'Order cancelled successfully.' });
+
+    // 3. Completely delete the order
+    await supabase.from('laundry_orders').delete().eq('id', order_id);
+
+    res.json({ success: true, message: 'Order completely deleted.' });
   } catch (error) {
     console.error('Cancel Order Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
