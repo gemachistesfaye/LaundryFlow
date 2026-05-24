@@ -104,7 +104,7 @@ export default function DelivererDashboard() {
                 <div style={{ display:'flex', gap:8 }}>
                   {t.status === 'pending' && (
                     <button onClick={() => handleAccept(t.id)} disabled={updating === t.id}
-                      style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 18px', borderRadius:12, border:'none', background:'rgba(99,102,241,0.15)', color:'#818cf8', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit', border:'1px solid rgba(99,102,241,0.3)' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 12, background: 'rgba(99,102,241,0.15)', color: '#818cf8', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid rgba(99,102,241,0.3)' }}>
                       {updating === t.id ? 'Accepting...' : 'Accept Task'}
                     </button>
                   )}
