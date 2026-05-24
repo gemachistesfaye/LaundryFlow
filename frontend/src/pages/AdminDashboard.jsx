@@ -180,6 +180,17 @@ export default function AdminDashboard() {
                           {meta.room && <div style={{ fontSize: 11, color: '#34d399', marginTop: 2 }}>🚪 Room {meta.room}</div>}
                           {meta.image_url && <a href={meta.image_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#f472b6', marginTop: 2, display: 'block', textDecoration: 'none' }}>🖼️ View Image</a>}
                           {meta.note && <div style={{ fontSize: 11, color: 'rgba(241,245,249,0.4)', marginTop: 4, fontStyle: 'italic' }}>"{meta.note}"</div>}
+                          
+                          {/* Clothes Details */}
+                          {o.clothes && o.clothes.length > 0 && (
+                            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {o.clothes.map((c, idx) => (
+                                <span key={idx} style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: 4, fontSize: 10, color: 'rgba(241,245,249,0.8)' }}>
+                                  {c.quantity}x {c.item_name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding:'12px 16px' }}><Badge status={o.status} /></td>
                         <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.6)' }}>{o.worker_name || '—'}</td>
@@ -188,7 +199,11 @@ export default function AdminDashboard() {
                             <>
                               <select onChange={e => handleAssign(o.id, e.target.value, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
                                 <option value="" disabled>Assign Worker...</option>
-                                {workers.map(w => <option key={w.id} value={w.id}>{w.full_name} ({w.active_orders || 0} active)</option>)}
+                                {workers.length === 0 ? (
+                                  <option value="" disabled>No workers available</option>
+                                ) : (
+                                  workers.map(w => <option key={w.id} value={w.id}>{w.full_name} ({w.active_orders || 0} active)</option>)
+                                )}
                               </select>
                               <button onClick={() => handleCancel(o.id)} style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
                             </>
@@ -196,7 +211,11 @@ export default function AdminDashboard() {
                           {o.status === 'ready' && (
                             <select onChange={e => handleAssign(o.id, e.target.value, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
                               <option value="" disabled>Assign Deliverer...</option>
-                              {deliverers.map(d => <option key={d.id} value={d.id}>{d.full_name}</option>)}
+                              {deliverers.length === 0 ? (
+                                <option value="" disabled>No deliverers available</option>
+                              ) : (
+                                deliverers.map(d => <option key={d.id} value={d.id}>{d.full_name}</option>)
+                              )}
                             </select>
                           )}
                         </td>

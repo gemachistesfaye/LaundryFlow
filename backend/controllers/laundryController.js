@@ -70,7 +70,7 @@ exports.getAllOrders = async (req, res) => {
   try {
     const { data: orders, error } = await supabase
       .from('laundry_orders')
-      .select(`*, student:users!laundry_orders_student_id_fkey(full_name, phone), worker:users!laundry_orders_worker_id_fkey(full_name)`)
+      .select(`*, student:users!laundry_orders_student_id_fkey(full_name, phone), worker:users!laundry_orders_worker_id_fkey(full_name), clothes(item_name, quantity)`)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
