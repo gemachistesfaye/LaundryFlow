@@ -3,13 +3,15 @@ const supabase = require('../db');
 
 // POST /api/admin/create-worker
 exports.createWorker = async (req, res) => {
-  const { username, email, password, full_name, phone } = req.body;
-  if (!username || !email || !password || !full_name) {
-    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  let { username, email, password, full_name, phone } = req.body;
+  if (!username || !password || !full_name) {
+    return res.status(400).json({ success: false, message: 'Username, password, and full name are required.' });
   }
+  if (!email) email = `${username}@smartwash.local`;
+
   try {
     const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
+    const password_hash = 'FORCE_CHANGE:' + await bcrypt.hash(password, salt);
 
     const { data, error } = await supabase
       .from('users')
@@ -29,13 +31,15 @@ exports.createWorker = async (req, res) => {
 
 // POST /api/admin/create-deliverer
 exports.createDeliverer = async (req, res) => {
-  const { username, email, password, full_name, phone } = req.body;
-  if (!username || !email || !password || !full_name) {
-    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  let { username, email, password, full_name, phone } = req.body;
+  if (!username || !password || !full_name) {
+    return res.status(400).json({ success: false, message: 'Username, password, and full name are required.' });
   }
+  if (!email) email = `${username}@smartwash.local`;
+
   try {
     const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
+    const password_hash = 'FORCE_CHANGE:' + await bcrypt.hash(password, salt);
 
     const { data, error } = await supabase
       .from('users')
@@ -193,28 +197,25 @@ exports.assignDeliverer = async (req, res) => {
 exports.cancelOrder = async (req, res) => {
   const { order_id } = req.body;
   try {
-    // 1. Get order details for notification
-    const { data: orderData } = await supabase.from('laundry_orders')
-      .select('student_id, tracking_code')
-      .eq('id', order_id)
-      .single();
-
+    const { data: orderData } = await supabase.from('laundry_orders').select('student_id, tracking_code').eq('id', order_id).single();
     if (orderData) {
-      // 2. Notify student
-      await supabase.from('notifications').insert([{ 
-        user_id: orderData.student_id, 
-        title: 'Order Cancelled', 
-        message: `Your order ${orderData.tracking_code} has been cancelled and removed by the admin.`, 
-        type: 'system' 
-      }]);
+      await supabase.from('notifications').insert([{ user_id: orderData.student_id, title: 'Order Cancelled', message: `Your order ${orderData.tracking_code} has been cancelled and removed by the admin.`, type: 'system' }]);
     }
-
-    // 3. Completely delete the order
     await supabase.from('laundry_orders').delete().eq('id', order_id);
-
     res.json({ success: true, message: 'Order completely deleted.' });
   } catch (error) {
     console.error('Cancel Order Error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// DELETE /api/admin/remove-user/:id
+exports.removeUser = async (req, res) => {
+  try {
+    await supabase.from('users').delete().eq('id', req.params.id);
+    res.json({ success: true, message: 'User removed successfully.' });
+  } catch (error) {
+    console.error('Remove User Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
