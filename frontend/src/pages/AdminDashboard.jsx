@@ -86,25 +86,71 @@ export default function AdminDashboard() {
       ) : (
         <>
           {tab === 'overview' && (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16 }}>
-              {[
-                { label:'Total Revenue', value:`${data.analytics.totalRevenue || 0} ETB`, icon:CreditCard, color:'#10b981' },
-                { label:'Total Orders', value:data.analytics.totalOrders || 0, icon:Package, color:'#6366f1' },
-                { label:'Pending Orders', value:data.analytics.pendingOrders || 0, icon:Clock, color:'#fbbf24' },
-                { label:'Total Students', value:data.analytics.totalStudents || 0, icon:Users, color:'#8b5cf6' },
-                { label:'Active Workers', value:data.analytics.totalWorkers || 0, icon:Wrench, color:'#22d3ee' },
-                { label:'Active Deliverers', value:data.analytics.totalDeliverers || 0, icon:Truck, color:'#f472b6' }
-              ].map((s,i) => (
-                <div key={i} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, padding:20, display:'flex', alignItems:'center', gap:14 }}>
-                  <div style={{ width:46, height:46, borderRadius:12, background:`${s.color}15`, border:`1px solid ${s.color}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <s.icon size={20} color={s.color} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16 }}>
+                {[
+                  { label:'Total Revenue', value:`${data.analytics.totalRevenue || 0} ETB`, icon:CreditCard, color:'#10b981' },
+                  { label:'Total Orders', value:data.analytics.totalOrders || 0, icon:Package, color:'#6366f1' },
+                  { label:'Pending Orders', value:data.analytics.pendingOrders || 0, icon:Clock, color:'#fbbf24' },
+                  { label:'Total Students', value:data.analytics.totalStudents || 0, icon:Users, color:'#8b5cf6' },
+                  { label:'Active Workers', value:data.analytics.totalWorkers || 0, icon:Wrench, color:'#22d3ee' },
+                  { label:'Active Deliverers', value:data.analytics.totalDeliverers || 0, icon:Truck, color:'#f472b6' }
+                ].map((s,i) => (
+                  <div key={i} style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, padding:20, display:'flex', alignItems:'center', gap:14 }}>
+                    <div style={{ width:46, height:46, borderRadius:12, background:`${s.color}15`, border:`1px solid ${s.color}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <s.icon size={20} color={s.color} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize:22, fontWeight:800, color:'#f1f5f9' }}>{s.value}</div>
+                      <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)', fontWeight:500 }}>{s.label}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize:22, fontWeight:800, color:'#f1f5f9' }}>{s.value}</div>
-                    <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)', fontWeight:500 }}>{s.label}</div>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+                {/* Recent Orders Section */}
+                <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h2 style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>Recent Orders</h2>
+                    <button onClick={() => setTab('orders')} style={{ background: 'transparent', border: 'none', color: '#818cf8', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>View All →</button>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                          <th style={{ padding:'10px 12px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>ORDER</th>
+                          <th style={{ padding:'10px 12px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>STUDENT</th>
+                          <th style={{ padding:'10px 12px', textAlign:'left', fontSize:11, color:'rgba(241,245,249,0.4)', fontWeight:600 }}>STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.orders.slice(0, 5).map(o => (
+                          <tr key={o.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                            <td style={{ padding:'10px 12px', fontSize:12, fontWeight:600, color:'#f1f5f9' }}>{o.tracking_code}</td>
+                            <td style={{ padding:'10px 12px', fontSize:12, color:'rgba(241,245,249,0.6)' }}>{o.student_name}</td>
+                            <td style={{ padding:'10px 12px' }}><Badge status={o.status} /></td>
+                          </tr>
+                        ))}
+                        {data.orders.length === 0 && (
+                          <tr><td colSpan={3} style={{ padding: 20, textAlign: 'center', color: 'rgba(241,245,249,0.4)', fontSize: 12 }}>No recent orders</td></tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              ))}
+
+                {/* Quick Actions & AI Summary */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:16, padding: 20 }}>
+                    <h2 style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 16 }}>Quick Actions</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <button onClick={() => setTab('orders')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', borderRadius: 10, background: 'rgba(99,102,241,0.1)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.2)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}><Package size={16} /> Manage Pending Orders</button>
+                      <button onClick={() => { setTab('users'); setTimeout(() => setShowModal('worker'), 100); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', borderRadius: 10, background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.2)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}><UserPlus size={16} /> Hire New Worker</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
