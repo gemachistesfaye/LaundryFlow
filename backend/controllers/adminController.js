@@ -62,7 +62,25 @@ exports.getAllUsers = async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    res.json({ success: true, users });
+
+    // Count active orders per worker so admin can see availability
+    const { data: activeOrders } = await supabase
+      .from('laundry_orders')
+      .select('worker_id')
+      .in('status', ['assigned', 'washing', 'drying', 'ready'])
+      .not('worker_id', 'is', null);
+
+    const workerCounts = {};
+    (activeOrders || []).forEach(o => {
+      workerCounts[o.worker_id] = (workerCounts[o.worker_id] || 0) + 1;
+    });
+
+    const usersWithCounts = users.map(u => ({
+      ...u,
+      active_orders: u.role === 'worker' ? (workerCounts[u.id] || 0) : undefined
+    }));
+
+    res.json({ success: true, users: usersWithCounts });
   } catch (error) {
     console.error('Get Users Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });

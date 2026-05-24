@@ -5,7 +5,7 @@ const generateTrackingCode = () => 'WASH-' + crypto.randomBytes(4).toString('hex
 
 // POST /api/laundry/create
 exports.createOrder = async (req, res) => {
-  const { items, notes } = req.body;
+  const { items, notes, phone, room, image_url } = req.body;
   const studentId = req.user.userId;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -16,9 +16,12 @@ exports.createOrder = async (req, res) => {
     const trackingCode = generateTrackingCode();
     const totalPrice = items.reduce((sum, item) => sum + (item.price || 5) * (item.quantity || 1), 0);
 
+    // Store extra metadata as JSON in notes field
+    const meta = JSON.stringify({ note: notes || '', phone: phone || '', room: room || '', image_url: image_url || '' });
+
     const { data: order, error: orderError } = await supabase
       .from('laundry_orders')
-      .insert([{ student_id: studentId, tracking_code: trackingCode, total_price: totalPrice, item_count: items.length, notes: notes || '' }])
+      .insert([{ student_id: studentId, tracking_code: trackingCode, total_price: totalPrice, item_count: items.length, notes: meta }])
       .select('id').single();
 
     if (orderError) throw orderError;
@@ -67,7 +70,7 @@ exports.getAllOrders = async (req, res) => {
   try {
     const { data: orders, error } = await supabase
       .from('laundry_orders')
-      .select(`*, student:users!laundry_orders_student_id_fkey(full_name), worker:users!laundry_orders_worker_id_fkey(full_name)`)
+      .select(`*, student:users!laundry_orders_student_id_fkey(full_name, phone), worker:users!laundry_orders_worker_id_fkey(full_name)`)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -75,6 +78,7 @@ exports.getAllOrders = async (req, res) => {
     const mapped = (orders || []).map(o => ({
       ...o,
       student_name: o.student?.full_name || null,
+      student_phone: o.student?.phone || null,
       worker_name: o.worker?.full_name || null
     }));
 

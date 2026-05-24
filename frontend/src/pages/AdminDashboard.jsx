@@ -114,17 +114,26 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.orders.map(o => (
+                    {data.orders.map(o => {
+                      let meta = { note: o.notes, phone: o.student_phone || '', room: '', image_url: '' };
+                      try { if (o.notes?.startsWith('{')) meta = JSON.parse(o.notes); } catch(e){}
+                      return (
                       <tr key={o.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                         <td style={{ padding:'12px 16px', fontSize:13, fontWeight:600, color:'#f1f5f9' }}>{o.tracking_code}</td>
-                        <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.6)' }}>{o.student_name}</td>
+                        <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.6)' }}>
+                          <div style={{ color: '#f1f5f9', fontWeight: 600 }}>{o.student_name}</div>
+                          {meta.phone && <div style={{ fontSize: 11, color: '#818cf8', marginTop: 2 }}>📞 {meta.phone}</div>}
+                          {meta.room && <div style={{ fontSize: 11, color: '#34d399', marginTop: 2 }}>🚪 Room {meta.room}</div>}
+                          {meta.image_url && <a href={meta.image_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#f472b6', marginTop: 2, display: 'block', textDecoration: 'none' }}>🖼️ View Image</a>}
+                          {meta.note && <div style={{ fontSize: 11, color: 'rgba(241,245,249,0.4)', marginTop: 4, fontStyle: 'italic' }}>"{meta.note}"</div>}
+                        </td>
                         <td style={{ padding:'12px 16px' }}><Badge status={o.status} /></td>
                         <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.6)' }}>{o.worker_name || '—'}</td>
                         <td style={{ padding:'12px 16px' }}>
                           {o.status === 'submitted' && (
                             <select onChange={e => handleAssign(o.id, e.target.value, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
                               <option value="" disabled>Assign Worker...</option>
-                              {workers.map(w => <option key={w.id} value={w.id}>{w.full_name}</option>)}
+                              {workers.map(w => <option key={w.id} value={w.id}>{w.full_name} ({w.active_orders || 0} active)</option>)}
                             </select>
                           )}
                           {o.status === 'ready' && (
@@ -135,7 +144,7 @@ export default function AdminDashboard() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>

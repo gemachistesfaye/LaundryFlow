@@ -40,6 +40,9 @@ export default function StudentDashboard() {
   const [showPay, setShowPay] = useState(null);
   const [cart, setCart] = useState([]);
   const [notes, setNotes] = useState('');
+  const [phone, setPhone] = useState('');
+  const [room, setRoom] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [msgs, setMsgs] = useState([{ from:'ai', text:"Hi! I'm your LaundryFlow assistant. Ask me about your orders, delivery times, or pricing!" }]);
@@ -73,8 +76,8 @@ export default function StudentDashboard() {
     if (!cart.length) return;
     setSubmitting(true);
     try {
-      await createOrder({ items: cart, notes });
-      setShowOrder(false); setCart([]); setNotes('');
+      await createOrder({ items: cart, notes, phone, room, image_url: imageUrl });
+      setShowOrder(false); setCart([]); setNotes(''); setPhone(''); setRoom(''); setImageUrl('');
       showToast('Order created successfully!');
       load();
     } catch (e) { showToast(e.response?.data?.message || 'Error creating order', 'error'); }
@@ -144,11 +147,6 @@ export default function StudentDashboard() {
                     <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)' }}>{o.item_count} items · {o.total_price} ETB · {new Date(o.created_at).toLocaleDateString()}</div>
                   </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    {o.status === 'submitted' && (
-                      <button onClick={() => setShowPay(o)} style={{ padding:'7px 14px', borderRadius:10, border:'1px solid rgba(99,102,241,0.3)', background:'rgba(99,102,241,0.1)', color:'#818cf8', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
-                        Pay Now
-                      </button>
-                    )}
                   </div>
                 </motion.div>
               ))}
@@ -249,6 +247,11 @@ export default function StudentDashboard() {
                 </div>
               </div>
             )}
+            <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone Number" style={{ flex:1, padding:'10px 14px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, color:'#f1f5f9', fontSize:13, fontFamily:'inherit', outline:'none' }} />
+              <input value={room} onChange={e => setRoom(e.target.value)} placeholder="Room No" style={{ flex:1, padding:'10px 14px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, color:'#f1f5f9', fontSize:13, fontFamily:'inherit', outline:'none' }} />
+            </div>
+            <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="Image URL (optional)" style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, color:'#f1f5f9', fontSize:13, fontFamily:'inherit', outline:'none', marginBottom:16, boxSizing:'border-box' }} />
             <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Special instructions (optional)..." rows={2}
               style={{ width:'100%', padding:'10px 14px', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, color:'#f1f5f9', fontSize:13, fontFamily:'inherit', outline:'none', resize:'none', marginBottom:16, boxSizing:'border-box' }} />
             <button onClick={submitOrder} disabled={!cart.length || submitting} style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', background: cart.length ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(99,102,241,0.3)', color:'white', fontWeight:700, fontSize:14, cursor: cart.length ? 'pointer' : 'not-allowed', fontFamily:'inherit' }}>
