@@ -63,7 +63,15 @@ export default function AdminDashboard() {
     } catch { showToast('Failed to remove user', 'error'); }
   };
 
-  const handleAssign = async (orderId, userId, role) => {
+  const handleAssign = async (orderId, e, role) => {
+    const userId = e.target.value;
+    const user = data.users.find(u => u.id == userId);
+    
+    if (!window.confirm(`Are you sure you want to assign this order to ${user?.full_name || role}?`)) {
+      e.target.value = "";
+      return;
+    }
+
     try {
       if (role === 'worker') await assignWorker({ order_id: orderId, worker_id: userId });
       else await assignDeliverer({ order_id: orderId, deliverer_id: userId });
@@ -211,7 +219,7 @@ export default function AdminDashboard() {
                         <td style={{ padding:'12px 16px', display: 'flex', gap: 6 }}>
                           {o.status === 'submitted' && (
                             <>
-                              <select onChange={e => handleAssign(o.id, e.target.value, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
+                              <select onChange={e => handleAssign(o.id, e, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
                                 <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>Assign Worker...</option>
                                 {workers.length === 0 ? (
                                   <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>No workers available</option>
@@ -223,7 +231,7 @@ export default function AdminDashboard() {
                             </>
                           )}
                           {o.status === 'ready' && (
-                            <select onChange={e => handleAssign(o.id, e.target.value, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
+                            <select onChange={e => handleAssign(o.id, e, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
                               <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>Assign Deliverer...</option>
                               {deliverers.length === 0 ? (
                                 <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>No deliverers available</option>
