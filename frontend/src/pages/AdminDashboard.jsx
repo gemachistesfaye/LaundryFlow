@@ -212,11 +212,11 @@ export default function AdminDashboard() {
                           {o.status === 'submitted' && (
                             <>
                               <select onChange={e => handleAssign(o.id, e.target.value, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
-                                <option value="" disabled>Assign Worker...</option>
+                                <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>Assign Worker...</option>
                                 {workers.length === 0 ? (
-                                  <option value="" disabled>No workers available</option>
+                                  <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>No workers available</option>
                                 ) : (
-                                  workers.map(w => <option key={w.id} value={w.id}>{w.full_name} ({w.active_orders || 0} active)</option>)
+                                  workers.map(w => <option key={w.id} value={w.id} style={{ background: '#1e1e2d', color: '#f1f5f9' }}>{w.full_name} ({w.active_orders || 0} active)</option>)
                                 )}
                               </select>
                               <button onClick={() => handleCancel(o.id)} style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
@@ -224,11 +224,11 @@ export default function AdminDashboard() {
                           )}
                           {o.status === 'ready' && (
                             <select onChange={e => handleAssign(o.id, e.target.value, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
-                              <option value="" disabled>Assign Deliverer...</option>
+                              <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>Assign Deliverer...</option>
                               {deliverers.length === 0 ? (
-                                <option value="" disabled>No deliverers available</option>
+                                <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>No deliverers available</option>
                               ) : (
-                                deliverers.map(d => <option key={d.id} value={d.id}>{d.full_name}</option>)
+                                deliverers.map(d => <option key={d.id} value={d.id} style={{ background: '#1e1e2d', color: '#f1f5f9' }}>{d.full_name}</option>)
                               )}
                             </select>
                           )}
