@@ -12,5 +12,6 @@ router.get('/users', adminController.getAllUsers);
 router.get('/analytics', adminController.getAnalytics);
 router.put('/assign-worker', adminController.assignWorker);
 router.put('/assign-deliverer', adminController.assignDeliverer);
+router.put('/cancel-order', adminController.cancelOrder);
 
 module.exports = router;

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { Users, Package, CreditCard, Bot, Activity, CheckCircle, X, Plus, UserPlus, TrendingUp, Clock, Wrench, Truck } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
-import { getAnalytics, getAllOrders, getAllUsers, getAllPayments, createWorker, createDeliverer, assignWorker, assignDeliverer, confirmPayment, getAIInsights } from '../services/api';
+import { getAnalytics, getAllOrders, getAllUsers, getAllPayments, createWorker, createDeliverer, assignWorker, assignDeliverer, cancelOrder, confirmPayment, getAIInsights } from '../services/api';
 
 const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',out_for_delivery:'#a78bfa',delivered:'#6ee7b7',pending:'#fbbf24',confirmed:'#10b981',rejected:'#ef4444' };
 
@@ -55,6 +55,14 @@ export default function AdminDashboard() {
       else await assignDeliverer({ order_id: orderId, deliverer_id: userId });
       showToast(`Assigned successfully`); loadAll();
     } catch { showToast('Assignment failed', 'error'); }
+  };
+
+  const handleCancel = async (orderId) => {
+    if(!window.confirm('Are you sure you want to cancel this order?')) return;
+    try {
+      await cancelOrder({ order_id: orderId });
+      showToast('Order cancelled'); loadAll();
+    } catch { showToast('Error cancelling order', 'error'); }
   };
 
   const handlePayment = async (paymentId, status) => {
@@ -129,12 +137,15 @@ export default function AdminDashboard() {
                         </td>
                         <td style={{ padding:'12px 16px' }}><Badge status={o.status} /></td>
                         <td style={{ padding:'12px 16px', fontSize:13, color:'rgba(241,245,249,0.6)' }}>{o.worker_name || '—'}</td>
-                        <td style={{ padding:'12px 16px' }}>
+                        <td style={{ padding:'12px 16px', display: 'flex', gap: 6 }}>
                           {o.status === 'submitted' && (
-                            <select onChange={e => handleAssign(o.id, e.target.value, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
-                              <option value="" disabled>Assign Worker...</option>
-                              {workers.map(w => <option key={w.id} value={w.id}>{w.full_name} ({w.active_orders || 0} active)</option>)}
-                            </select>
+                            <>
+                              <select onChange={e => handleAssign(o.id, e.target.value, 'worker')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
+                                <option value="" disabled>Assign Worker...</option>
+                                {workers.map(w => <option key={w.id} value={w.id}>{w.full_name} ({w.active_orders || 0} active)</option>)}
+                              </select>
+                              <button onClick={() => handleCancel(o.id)} style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+                            </>
                           )}
                           {o.status === 'ready' && (
                             <select onChange={e => handleAssign(o.id, e.target.value, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>

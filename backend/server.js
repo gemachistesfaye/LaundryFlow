@@ -18,6 +18,7 @@ app.use('/api/laundry', require('./routes/laundry'));
 app.use('/api/delivery', require('./routes/delivery'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Health check
 app.get('/', (req, res) => {

@@ -53,26 +53,38 @@ exports.acceptTask = async (req, res) => {
 // PUT /api/delivery/complete
 exports.completeDelivery = async (req, res) => {
   const { task_id } = req.body;
+  const delivererId = req.user.userId;
+
   try {
-    const { error: taskError } = await supabase
-      .from('delivery_tasks')
-      .update({ status: 'delivered', delivered_at: new Date().toISOString() })
-      .eq('id', task_id);
-
-    if (taskError) throw taskError;
-
-    const { data: taskData } = await supabase
-      .from('delivery_tasks')
+    const { data: taskData } = await supabase.from('delivery_tasks')
       .select('order_id')
       .eq('id', task_id)
       .single();
 
-    if (taskData) {
-      await supabase.from('laundry_orders').update({ status: 'delivered' }).eq('id', taskData.order_id);
-      await supabase.from('clothes').update({ status: 'delivered' }).eq('order_id', taskData.order_id);
+    if (!taskData) throw new Error('Task not found');
+    const order_id = taskData.order_id;
+
+    await supabase.from('delivery_tasks')
+      .update({ status: 'delivered', delivered_at: new Date() })
+      .eq('id', task_id)
+      .eq('deliverer_id', delivererId);
+
+    const { data: orderData } = await supabase.from('laundry_orders')
+      .update({ status: 'delivered' })
+      .eq('id', order_id)
+      .select('student_id, tracking_code')
+      .single();
+
+    if (orderData) {
+      await supabase.from('notifications').insert([{
+        user_id: orderData.student_id,
+        title: 'Order Delivered',
+        message: `Your order ${orderData.tracking_code} has been delivered successfully!`,
+        type: 'order_update'
+      }]);
     }
 
-    res.json({ success: true, message: 'Delivery completed.' });
+    res.json({ success: true, message: 'Delivery completed successfully.' });
   } catch (error) {
     console.error('Complete Delivery Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });

@@ -6,6 +6,7 @@ import {
   Users, BarChart3, Settings, LogOut, Bell, Menu, X,
   ChevronRight, Wrench, Bot
 } from 'lucide-react';
+import { getMyNotifications, markNotificationsRead } from '../services/api';
 
 const NAV_CONFIG = {
   student: [
@@ -41,6 +42,22 @@ export default function DashboardLayout({ children, title, activeTab }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  React.useEffect(() => {
+    if (user) {
+      getMyNotifications().then(res => setNotifications(res.data.notifications || [])).catch(()=>{});
+    }
+  }, [user]);
+
+  const handleOpenNotifications = async () => {
+    setShowNotifications(!showNotifications);
+    if (!showNotifications && notifications.some(n => !n.is_read)) {
+      await markNotificationsRead();
+      setNotifications(notifications.map(n => ({...n, is_read: true})));
+    }
+  };
 
   const handleLogout = () => { logout(); navigate('/login'); };
   const role = user?.role || 'student';
@@ -136,6 +153,31 @@ export default function DashboardLayout({ children, title, activeTab }) {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ position: 'relative' }}>
+              <button onClick={handleOpenNotifications} style={{ background:'rgba(255,255,255,0.05)', border:'none', borderRadius:10, width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'rgba(241,245,249,0.7)', transition:'all 0.2s' }}>
+                <Bell size={18} />
+                {notifications.filter(n => !n.is_read).length > 0 && (
+                  <span style={{ position:'absolute', top:4, right:4, width:8, height:8, borderRadius:'50%', background:'#ef4444' }}></span>
+                )}
+              </button>
+              {showNotifications && (
+                <div style={{ position:'absolute', top:46, right:0, width:320, background:'#111118', border:'1px solid rgba(255,255,255,0.08)', borderRadius:16, boxShadow:'0 10px 40px rgba(0,0,0,0.5)', zIndex:100, overflow:'hidden', display:'flex', flexDirection:'column', maxHeight:400 }}>
+                  <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.05)', fontSize:13, fontWeight:700, color:'#f1f5f9' }}>Notifications</div>
+                  <div style={{ overflowY:'auto', flex:1 }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding:24, textAlign:'center', fontSize:13, color:'rgba(241,245,249,0.4)' }}>No notifications yet</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} style={{ padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.02)', opacity: n.is_read ? 0.6 : 1, background: n.is_read ? 'transparent' : 'rgba(99,102,241,0.05)' }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', marginBottom:4 }}>{n.title}</div>
+                          <div style={{ fontSize:12, color:'rgba(241,245,249,0.5)', lineHeight:1.4 }}>{n.message}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div style={{ padding: '4px 12px', borderRadius: 999, background: roleStyle.bg, border: `1px solid ${roleStyle.color}30`, fontSize: 11, fontWeight: 700, color: roleStyle.color, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               {roleStyle.label}
             </div>

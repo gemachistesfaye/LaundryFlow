@@ -123,12 +123,25 @@ exports.getAnalytics = async (req, res) => {
 exports.assignWorker = async (req, res) => {
   const { order_id, worker_id } = req.body;
   try {
-    const { error } = await supabase
+    const { error, data: orderData } = await supabase
       .from('laundry_orders')
       .update({ worker_id, status: 'assigned' })
-      .eq('id', order_id);
+      .eq('id', order_id)
+      .select('student_id, tracking_code')
+      .single();
 
     if (error) throw error;
+    
+    // Notify student
+    if (orderData) {
+      await supabase.from('notifications').insert([{
+        user_id: orderData.student_id,
+        title: 'Worker Assigned',
+        message: `A worker has been assigned to your order ${orderData.tracking_code}.`,
+        type: 'assignment'
+      }]);
+    }
+
     res.json({ success: true, message: 'Worker assigned to order.' });
   } catch (error) {
     console.error('Assign Worker Error:', error);
@@ -153,11 +166,40 @@ exports.assignDeliverer = async (req, res) => {
       await supabase.from('delivery_tasks').update({ deliverer_id, status: 'picked_up' }).eq('id', tasks[0].id);
     }
 
-    await supabase.from('laundry_orders').update({ status: 'out_for_delivery' }).eq('id', order_id);
+    const { data: orderData } = await supabase
+      .from('laundry_orders')
+      .update({ status: 'out_for_delivery' })
+      .eq('id', order_id)
+      .select('student_id, tracking_code')
+      .single();
+
+    if (orderData) {
+      await supabase.from('notifications').insert([{
+        user_id: orderData.student_id,
+        title: 'Out for Delivery',
+        message: `Your order ${orderData.tracking_code} is out for delivery!`,
+        type: 'order_update'
+      }]);
+    }
 
     res.json({ success: true, message: 'Deliverer assigned. Order is out for delivery.' });
   } catch (error) {
     console.error('Assign Deliverer Error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// PUT /api/admin/cancel-order
+exports.cancelOrder = async (req, res) => {
+  const { order_id } = req.body;
+  try {
+    const { data: orderData } = await supabase.from('laundry_orders').update({ status: 'cancelled' }).eq('id', order_id).select('student_id, tracking_code').single();
+    if (orderData) {
+      await supabase.from('notifications').insert([{ user_id: orderData.student_id, title: 'Order Cancelled', message: "Your order ${orderData.tracking_code} has been cancelled by the admin.", type: 'system' }]);
+    }
+    res.json({ success: true, message: 'Order cancelled successfully.' });
+  } catch (error) {
+    console.error('Cancel Order Error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };

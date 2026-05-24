@@ -38,8 +38,13 @@ export const getAnalytics = () => API.get('/admin/analytics');
 export const getAllOrders = () => API.get('/laundry/all-orders');
 export const assignWorker = (data) => API.put('/admin/assign-worker', data);
 export const assignDeliverer = (data) => API.put('/admin/assign-deliverer', data);
+export const cancelOrder = (data) => API.put('/admin/cancel-order', data);
 export const getAllPayments = () => API.get('/payments/all');
 export const confirmPayment = (data) => API.put('/payments/confirm', data);
+
+// ---- NOTIFICATIONS ----
+export const getMyNotifications = () => API.get('/notifications');
+export const markNotificationsRead = () => API.put('/notifications/read');
 
 // ---- AI ASSISTANT ----
 export const chatWithAI = (data) => API.post('/ai/chat', data);

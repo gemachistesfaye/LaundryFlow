@@ -119,11 +119,25 @@ exports.updateStatus = async (req, res) => {
   }
 
   try {
-    await supabase.from('laundry_orders').update({ status }).eq('id', order_id);
+    const { data: orderData } = await supabase.from('laundry_orders')
+      .update({ status })
+      .eq('id', order_id)
+      .select('student_id, tracking_code')
+      .single();
+      
     await supabase.from('clothes').update({ status }).eq('order_id', order_id);
 
     if (status === 'ready') {
       await supabase.from('delivery_tasks').insert([{ order_id }]);
+    }
+    
+    if (orderData) {
+      await supabase.from('notifications').insert([{
+        user_id: orderData.student_id,
+        title: `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+        message: `Your order ${orderData.tracking_code} is now ${status}.`,
+        type: 'order_update'
+      }]);
     }
 
     res.json({ success: true, message: `Order status updated to ${status}.` });
