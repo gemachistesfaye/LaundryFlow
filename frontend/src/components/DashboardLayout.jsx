@@ -17,10 +17,14 @@ const NAV_CONFIG = {
   worker: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/worker/dashboard' },
     { icon: Wrench, label: 'My Queue', path: '/worker/dashboard' },
+    { icon: BarChart3, label: 'Performance', path: '/worker/dashboard' },
+    { icon: Settings, label: 'Settings', path: '/worker/dashboard' },
   ],
   deliverer: [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/deliverer/dashboard' },
     { icon: Truck, label: 'Deliveries', path: '/deliverer/dashboard' },
+    { icon: BarChart3, label: 'Performance', path: '/deliverer/dashboard' },
+    { icon: Settings, label: 'Settings', path: '/deliverer/dashboard' },
   ],
   admin: [
     { icon: LayoutDashboard, label: 'Overview', path: '/admin/dashboard?tab=overview' },

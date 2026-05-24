@@ -94,7 +94,7 @@ exports.getWorkerOrders = async (req, res) => {
   try {
     const { data: orders, error } = await supabase
       .from('laundry_orders')
-      .select(`*, student:users!laundry_orders_student_id_fkey(full_name)`)
+      .select(`*, student:users!laundry_orders_student_id_fkey(full_name), clothes(item_name, quantity)`)
       .eq('worker_id', req.user.userId)
       .in('status', ['assigned', 'washing', 'drying', 'ready'])
       .order('created_at', { ascending: false });

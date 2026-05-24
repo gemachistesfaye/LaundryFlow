@@ -88,6 +88,10 @@ export default function WorkerDashboard() {
               const idx = STATUS_FLOW.indexOf(o.status);
               const canAdvance = idx >= 0 && idx < STATUS_FLOW.length - 1;
               const nextLabel = canAdvance ? STATUS_LABELS[STATUS_FLOW[idx+1]] : null;
+              
+              let meta = { note: o.notes, phone: '', room: '', image_url: '' };
+              try { if (o.notes?.startsWith('{')) meta = JSON.parse(o.notes); } catch(e){}
+
               return (
                 <motion.div key={o.id} initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }}
                   style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
@@ -96,10 +100,31 @@ export default function WorkerDashboard() {
                       <span style={{ fontWeight:700, color:'#f1f5f9', fontSize:14 }}>{o.tracking_code}</span>
                       <Badge status={o.status} />
                     </div>
-                    <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)' }}>
-                      Student: {o.student_name || '—'} · {o.item_count} items · {o.total_price} ETB
+                    <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', marginBottom: 4 }}>
+                      Student: {o.student_name || '—'}
                     </div>
-                    {o.notes && <div style={{ fontSize:12, color:'rgba(241,245,249,0.3)', marginTop:4, fontStyle:'italic' }}>"{o.notes}"</div>}
+                    
+                    <div style={{ fontSize:12, color:'rgba(241,245,249,0.5)', display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span>{o.item_count} items</span>
+                      <span>·</span>
+                      <span>{o.total_price} ETB</span>
+                      {meta.phone && <span>· 📞 {meta.phone}</span>}
+                      {meta.room && <span>· 🚪 Room {meta.room}</span>}
+                    </div>
+
+                    {meta.image_url && <a href={meta.image_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#f472b6', marginBottom: 8, display: 'block', textDecoration: 'none' }}>🖼️ View Image</a>}
+                    {meta.note && <div style={{ fontSize:12, color:'rgba(241,245,249,0.3)', marginBottom:8, fontStyle:'italic' }}>"{meta.note}"</div>}
+                    
+                    {/* Clothes Details */}
+                    {o.clothes && o.clothes.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {o.clothes.map((c, i) => (
+                          <span key={i} style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.05)', borderRadius: 6, fontSize: 11, color: 'rgba(241,245,249,0.8)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            {c.quantity}x {c.item_name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {canAdvance && (
                     <button onClick={() => advance(o)} disabled={updating === o.id}
