@@ -157,6 +157,18 @@ exports.assignWorker = async (req, res) => {
 exports.assignDeliverer = async (req, res) => {
   const { order_id, deliverer_id } = req.body;
   try {
+    // Guard: check that a confirmed payment exists for this order
+    const { data: confirmedPayment } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('order_id', order_id)
+      .eq('status', 'confirmed')
+      .limit(1);
+
+    if (!confirmedPayment || confirmedPayment.length === 0) {
+      return res.status(400).json({ success: false, message: 'Cannot assign deliverer. Student has not paid yet.' });
+    }
+
     const { data: tasks } = await supabase
       .from('delivery_tasks')
       .select('id')
@@ -193,6 +205,35 @@ exports.assignDeliverer = async (req, res) => {
   }
 };
 
+// PUT /api/admin/request-payment
+exports.requestPayment = async (req, res) => {
+  const { order_id } = req.body;
+  try {
+    const { data: orderData, error } = await supabase
+      .from('laundry_orders')
+      .update({ status: 'payment_pending' })
+      .eq('id', order_id)
+      .select('student_id, tracking_code, total_price')
+      .single();
+
+    if (error) throw error;
+
+    if (orderData) {
+      await supabase.from('notifications').insert([{
+        user_id: orderData.student_id,
+        title: '💳 Payment Required',
+        message: `Your laundry order ${orderData.tracking_code} is ready! Please submit a payment of ${orderData.total_price} ETB to proceed with delivery.`,
+        type: 'payment'
+      }]);
+    }
+
+    res.json({ success: true, message: 'Payment request sent to student.' });
+  } catch (error) {
+    console.error('Request Payment Error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
 // PUT /api/admin/cancel-order
 exports.cancelOrder = async (req, res) => {
   const { order_id } = req.body;
@@ -219,3 +260,4 @@ exports.removeUser = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
+
