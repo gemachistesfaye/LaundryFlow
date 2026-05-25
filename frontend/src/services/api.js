@@ -19,6 +19,8 @@ export const getMe = () => API.get('/auth/me');
 export const createOrder = (data) => API.post('/laundry/create', data);
 export const getMyOrders = () => API.get('/laundry/my-orders');
 export const createPayment = (data) => API.post('/payments/create', data);
+export const chapaCheckout = (data) => API.post('/payments/chapa-checkout', data);
+export const verifyChapaPayment = (data) => API.post('/payments/chapa-verify', data);
 export const changePassword = (data) => API.post('/auth/change-password', data);
 
 export const getMyPayments = () => API.get('/payments/my-payments');

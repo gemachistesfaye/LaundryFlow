@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Package, CreditCard, Wallet, Plus, X, Send, Bot, CheckCircle, Clock, Truck, Shirt } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
-import { getMyOrders, createOrder, getMyPayments, createPayment, chatWithAI } from '../services/api';
+import { getMyOrders, createOrder, getMyPayments, createPayment, chapaCheckout, verifyChapaPayment, chatWithAI } from '../services/api';
 
 const ITEMS = ['T-Shirt','Shirt','Pants','Jeans','Jacket','Dress','Shorts','Underwear','Socks','Hoodie','Sweater','Bedsheet'];
 const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',out_for_delivery:'#a78bfa',delivered:'#6ee7b7' };
@@ -65,6 +65,28 @@ export default function StudentDashboard() {
   useEffect(() => { load(); }, []);
   useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; }, [msgs]);
 
+  // Handle Chapa return verification
+  useEffect(() => {
+    const tx_ref = searchParams.get('verify_tx');
+    if (tx_ref) {
+      const verify = async () => {
+        try {
+          await verifyChapaPayment({ tx_ref });
+          showToast('Payment verified successfully!', 'success');
+          // Remove from URL
+          searchParams.delete('verify_tx');
+          setSearchParams(searchParams);
+          load();
+        } catch (err) {
+          showToast('Payment verification failed.', 'error');
+          searchParams.delete('verify_tx');
+          setSearchParams(searchParams);
+        }
+      };
+      verify();
+    }
+  }, [searchParams, setSearchParams]);
+
   const addItem = (name) => {
     const ex = cart.find(c => c.name === name);
     if (ex) setCart(cart.map(c => c.name === name ? {...c, quantity: c.quantity+1} : c));
@@ -86,9 +108,17 @@ export default function StudentDashboard() {
 
   const submitPay = async (order_id, amount) => {
     try {
-      await createPayment({ order_id, amount, payment_method: 'telebirr' });
-      setShowPay(null); showToast('Payment submitted!'); load();
-    } catch { showToast('Payment error', 'error'); }
+      setSubmitting(true);
+      const res = await chapaCheckout({ order_id, amount });
+      if (res.data.checkout_url) {
+        window.location.href = res.data.checkout_url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (e) {
+      showToast('Error initializing payment', 'error');
+      setSubmitting(false);
+    }
   };
 
   const sendMsg = async () => {
@@ -327,9 +357,9 @@ export default function StudentDashboard() {
               <div style={{ fontSize:13, color:'rgba(241,245,249,0.5)' }}>{showPay.item_count} items</div>
               <div style={{ fontSize:22, fontWeight:900, color:'#34d399', marginTop:10 }}>{showPay.total_price} ETB</div>
             </div>
-            <p style={{ fontSize:13, color:'rgba(241,245,249,0.4)', marginBottom:20, lineHeight:1.6 }}>Payment will be submitted for admin confirmation. You can pay via Telebirr or CBE.</p>
-            <button onClick={() => submitPay(showPay.id, showPay.total_price)} style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#10b981,#059669)', color:'white', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(16,185,129,0.3)' }}>
-              ✓ Confirm Payment
+            <p style={{ fontSize:13, color:'rgba(241,245,249,0.4)', marginBottom:20, lineHeight:1.6 }}>You will be redirected to Chapa to securely complete your payment.</p>
+            <button onClick={() => submitPay(showPay.id, showPay.total_price)} disabled={submitting} style={{ width:'100%', padding:'13px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#10b981,#059669)', color:'white', fontWeight:700, fontSize:14, cursor: submitting ? 'not-allowed' : 'pointer', fontFamily:'inherit', boxShadow:'0 4px 16px rgba(16,185,129,0.3)', opacity: submitting ? 0.7 : 1 }}>
+              {submitting ? 'Redirecting...' : 'Pay with Chapa'}
             </button>
           </motion.div>
         </div>
