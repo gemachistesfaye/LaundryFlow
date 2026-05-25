@@ -211,12 +211,24 @@ exports.requestPayment = async (req, res) => {
   try {
     const { data: orderData, error } = await supabase
       .from('laundry_orders')
-      .update({ status: 'payment_pending' })
+      .select('student_id, tracking_code, total_price, status')
       .eq('id', order_id)
-      .select('student_id, tracking_code, total_price')
       .single();
 
     if (error) throw error;
+    
+    // Create a pending payment record
+    const { error: paymentError } = await supabase
+      .from('payments')
+      .insert([{
+        student_id: orderData.student_id,
+        order_id: order_id,
+        amount: orderData.total_price,
+        status: 'pending',
+        payment_method: 'telebirr' // Default or placeholder
+      }]);
+      
+    if (paymentError) throw paymentError;
 
     if (orderData) {
       await supabase.from('notifications').insert([{

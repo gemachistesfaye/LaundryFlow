@@ -5,7 +5,7 @@ import { Users, Package, CreditCard, Bot, Activity, CheckCircle, X, Plus, UserPl
 import DashboardLayout from '../components/DashboardLayout';
 import { getAnalytics, getAllOrders, getAllUsers, getAllPayments, createWorker, createDeliverer, assignWorker, assignDeliverer, cancelOrder, requestPayment, removeUser, confirmPayment, getAIInsights } from '../services/api';
 
-const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',payment_pending:'#f59e0b',out_for_delivery:'#a78bfa',delivered:'#6ee7b7',pending:'#fbbf24',confirmed:'#10b981',rejected:'#ef4444' };
+const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',out_for_delivery:'#a78bfa',delivered:'#6ee7b7',pending:'#fbbf24',confirmed:'#10b981',rejected:'#ef4444' };
 
 const Badge = ({ status }) => (
   <span style={{ padding:'3px 10px', borderRadius:999, fontSize:10, fontWeight:700, background:`${STATUS_COLORS[status]||'#818cf8'}18`, color:STATUS_COLORS[status]||'#818cf8', border:`1px solid ${STATUS_COLORS[status]||'#818cf8'}30`, textTransform:'uppercase' }}>
@@ -239,28 +239,33 @@ export default function AdminDashboard() {
                               <button onClick={() => handleCancel(o.id)} style={{ padding: '6px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
                             </>
                           )}
-                          {/* STEP 2: Ready → request payment from student */}
-                          {o.status === 'ready' && (
-                            <button onClick={() => handleRequestPayment(o.id, o.tracking_code)}
-                              style={{ padding:'6px 12px', borderRadius:8, background:'rgba(245,158,11,0.15)', color:'#fbbf24', border:'1px solid rgba(245,158,11,0.3)', cursor:'pointer', fontSize:12, fontWeight:600 }}>
-                              💳 Request Payment
-                            </button>
-                          )}
-                          {/* STEP 3: payment_pending → check payment then assign deliverer */}
-                          {o.status === 'payment_pending' && (() => {
-                            const hasPaid = data.payments.some(p => p.order_id === o.id && p.status === 'confirmed');
-                            return hasPaid ? (
-                              <select onChange={e => handleAssign(o.id, e, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
-                                <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>Assign Deliverer...</option>
-                                {deliverers.length === 0 ? (
-                                  <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>No deliverers available</option>
-                                ) : (
-                                  deliverers.map(d => <option key={d.id} value={d.id} style={{ background: '#1e1e2d', color: '#f1f5f9' }}>{d.full_name}</option>)
-                                )}
-                              </select>
-                            ) : (
-                              <span style={{ padding:'5px 10px', borderRadius:8, background:'rgba(251,191,36,0.08)', color:'rgba(251,191,36,0.6)', border:'1px solid rgba(251,191,36,0.15)', fontSize:11 }}>⏳ Awaiting student payment...</span>
-                            );
+                          {/* STEP 2 & 3: Ready → Check payment state to determine action */}
+                          {o.status === 'ready' && (() => {
+                            const payment = data.payments.find(p => p.order_id === o.id);
+                            
+                            if (!payment) {
+                              return (
+                                <button onClick={() => handleRequestPayment(o.id, o.tracking_code)}
+                                  style={{ padding:'6px 12px', borderRadius:8, background:'rgba(245,158,11,0.15)', color:'#fbbf24', border:'1px solid rgba(245,158,11,0.3)', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                                  💳 Request Payment
+                                </button>
+                              );
+                            } else if (payment.status === 'pending' || payment.status === 'rejected') {
+                              return (
+                                <span style={{ padding:'5px 10px', borderRadius:8, background:'rgba(251,191,36,0.08)', color:'rgba(251,191,36,0.6)', border:'1px solid rgba(251,191,36,0.15)', fontSize:11 }}>⏳ Awaiting student payment...</span>
+                              );
+                            } else if (payment.status === 'confirmed') {
+                              return (
+                                <select onChange={e => handleAssign(o.id, e, 'deliverer')} defaultValue="" style={{ padding:'6px 10px', borderRadius:8, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#f1f5f9', fontSize:12, outline:'none' }}>
+                                  <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>Assign Deliverer...</option>
+                                  {deliverers.length === 0 ? (
+                                    <option value="" disabled style={{ background: '#1e1e2d', color: '#a1a1aa' }}>No deliverers available</option>
+                                  ) : (
+                                    deliverers.map(d => <option key={d.id} value={d.id} style={{ background: '#1e1e2d', color: '#f1f5f9' }}>{d.full_name}</option>)
+                                  )}
+                                </select>
+                              );
+                            }
                           })()}
                         </td>
                       </tr>

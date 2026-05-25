@@ -7,8 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { getMyOrders, createOrder, getMyPayments, createPayment, chatWithAI } from '../services/api';
 
 const ITEMS = ['T-Shirt','Shirt','Pants','Jeans','Jacket','Dress','Shorts','Underwear','Socks','Hoodie','Sweater','Bedsheet'];
-const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',payment_pending:'#f59e0b',out_for_delivery:'#a78bfa',delivered:'#6ee7b7' };
-const STATUS_LABELS = { submitted:'Submitted',assigned:'Assigned',washing:'Washing',drying:'Drying',ready:'Ready',payment_pending:'Payment Due',out_for_delivery:'Out for Delivery',delivered:'Delivered' };
+const STATUS_COLORS = { submitted:'#818cf8',assigned:'#fbbf24',washing:'#22d3ee',drying:'#fb923c',ready:'#34d399',out_for_delivery:'#a78bfa',delivered:'#6ee7b7' };
+const STATUS_LABELS = { submitted:'Submitted',assigned:'Assigned',washing:'Washing',drying:'Drying',ready:'Ready',out_for_delivery:'Out for Delivery',delivered:'Delivered' };
 
 const Stat = ({ icon: Icon, label, value, color }) => (
   <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:20, padding:'22px 20px', display:'flex', alignItems:'center', gap:16 }}>
@@ -137,7 +137,9 @@ export default function StudentDashboard() {
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               {/* Payment Due Alert Banner */}
-              {orders.filter(o => o.status === 'payment_pending').map(o => (
+              {orders.filter(o => o.status === 'ready' && payments.some(p => p.order_id === o.id && (p.status === 'pending' || p.status === 'rejected'))).map(o => {
+                const pendingPayment = payments.find(p => p.order_id === o.id && (p.status === 'pending' || p.status === 'rejected'));
+                return (
                 <motion.div key={`alert-${o.id}`} initial={{ opacity:0, y:-10 }} animate={{ opacity:1, y:0 }}
                   style={{ background:'rgba(245,158,11,0.08)', border:'2px solid rgba(245,158,11,0.35)', borderRadius:16, padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:12 }}>
@@ -152,11 +154,13 @@ export default function StudentDashboard() {
                     Pay Now
                   </button>
                 </motion.div>
-              ))}
+              )})}
 
-              {orders.map(o => (
+              {orders.map(o => {
+                const isPaymentPending = o.status === 'ready' && payments.some(p => p.order_id === o.id && (p.status === 'pending' || p.status === 'rejected'));
+                return (
                 <motion.div key={o.id} initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }}
-                  style={{ background: o.status === 'payment_pending' ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.03)', border: o.status === 'payment_pending' ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+                  style={{ background: isPaymentPending ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.03)', border: isPaymentPending ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
                   <div>
                     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
                       <span style={{ fontWeight:700, color:'#f1f5f9', fontSize:14 }}>{o.tracking_code}</span>
@@ -165,7 +169,7 @@ export default function StudentDashboard() {
                     <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)' }}>{o.item_count} items · {o.total_price} ETB · {new Date(o.created_at).toLocaleDateString()}</div>
                   </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    {o.status === 'payment_pending' && (
+                    {isPaymentPending && (
                       <button onClick={() => setShowPay(o)}
                         style={{ padding:'8px 16px', borderRadius:10, background:'rgba(245,158,11,0.15)', color:'#fbbf24', border:'1px solid rgba(245,158,11,0.3)', fontWeight:700, fontSize:12, cursor:'pointer' }}>
                         💳 Pay Now
@@ -173,7 +177,7 @@ export default function StudentDashboard() {
                     )}
                   </div>
                 </motion.div>
-              ))}
+              )})}
             </div>
           )}
         </div>
@@ -286,7 +290,11 @@ export default function StudentDashboard() {
       )}
 
       {/* Pay Modal */}
-      {showPay && (
+      {showPay && (() => {
+        // Find existing payment ID so we can update it rather than creating a new one
+        const existingPayment = payments.find(p => p.order_id === showPay.id && (p.status === 'pending' || p.status === 'rejected'));
+        
+        return (
         <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,0.75)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
           <motion.div initial={{ opacity:0, scale:0.92 }} animate={{ opacity:1, scale:1 }} style={{ background:'#111118', border:'1px solid rgba(255,255,255,0.08)', borderRadius:24, padding:28, width:'100%', maxWidth:400 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:20 }}>
@@ -305,7 +313,8 @@ export default function StudentDashboard() {
             </button>
           </motion.div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Toast */}
       {toast && (

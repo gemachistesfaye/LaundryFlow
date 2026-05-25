@@ -10,11 +10,29 @@ exports.createPayment = async (req, res) => {
   }
 
   try {
-    const { error } = await supabase
+    // Check if there is already a pending payment for this order
+    const { data: existing } = await supabase
       .from('payments')
-      .insert([{ student_id, order_id, amount, payment_method: payment_method || 'cash', status: 'pending' }]);
+      .select('id')
+      .eq('order_id', order_id)
+      .eq('status', 'pending')
+      .limit(1);
 
-    if (error) throw error;
+    if (existing && existing.length > 0) {
+      // Update existing pending payment
+      const { error } = await supabase
+        .from('payments')
+        .update({ amount, payment_method: payment_method || 'cash' })
+        .eq('id', existing[0].id);
+      if (error) throw error;
+    } else {
+      // Insert new payment
+      const { error } = await supabase
+        .from('payments')
+        .insert([{ student_id, order_id, amount, payment_method: payment_method || 'cash', status: 'pending' }]);
+      if (error) throw error;
+    }
+
     res.status(201).json({ success: true, message: 'Payment submitted for confirmation.' });
   } catch (error) {
     console.error('Create Payment Error:', error);
