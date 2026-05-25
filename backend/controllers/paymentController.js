@@ -141,7 +141,7 @@ exports.initializeChapaCheckout = async (req, res) => {
 
   try {
     const { data: student } = await supabase.from('users').select('email, full_name').eq('id', student_id).single();
-    let email = student?.email || \student_\@smartwash.local\;
+    let email = student?.email || `student_${student_id}@smartwash.local`;
     let firstName = student?.full_name ? student.full_name.split(' ')[0] : 'Student';
     let lastName = student?.full_name ? student.full_name.split(' ')[1] || 'Lastname' : 'Lastname';
 
@@ -156,13 +156,13 @@ exports.initializeChapaCheckout = async (req, res) => {
       payment_id = newPayment.id;
     }
 
-    const tx_ref = \WASH-\-\\;
-    const return_url = \http://localhost:5173/student/dashboard?verify_tx=\\;
+    const tx_ref = `WASH-${payment_id}-${Date.now()}`;
+    const return_url = `http://localhost:5173/student/dashboard?verify_tx=${tx_ref}`;
 
     const response = await fetch('https://api.chapa.co/v1/transaction/initialize', {
       method: 'POST',
       headers: {
-        'Authorization': \Bearer \\,
+        'Authorization': `Bearer ${process.env.CHAPA_SECRET_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -198,9 +198,9 @@ exports.verifyChapaPayment = async (req, res) => {
     if (parts.length < 3) return res.status(400).json({ success: false, message: 'Invalid tx_ref format.' });
     const payment_id = parseInt(parts[1], 10);
 
-    const response = await fetch(\https://api.chapa.co/v1/transaction/verify/\\, {
+    const response = await fetch(`https://api.chapa.co/v1/transaction/verify/${tx_ref}`, {
       method: 'GET',
-      headers: { 'Authorization': \Bearer \\ }
+      headers: { 'Authorization': `Bearer ${process.env.CHAPA_SECRET_KEY}` }
     });
 
     const chapaData = await response.json();
