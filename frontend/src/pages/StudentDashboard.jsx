@@ -139,6 +139,23 @@ export default function StudentDashboard() {
               {/* Payment Due Alert Banner */}
               {orders.filter(o => o.status === 'ready' && payments.some(p => p.order_id === o.id && (p.status === 'pending' || p.status === 'rejected'))).map(o => {
                 const pendingPayment = payments.find(p => p.order_id === o.id && (p.status === 'pending' || p.status === 'rejected'));
+                const isUnpaid = pendingPayment.payment_method === 'unpaid' || pendingPayment.status === 'rejected';
+
+                if (!isUnpaid) {
+                  return (
+                    <motion.div key={`alert-${o.id}`} initial={{ opacity:0, y:-10 }} animate={{ opacity:1, y:0 }}
+                      style={{ background:'rgba(16,185,129,0.08)', border:'2px solid rgba(16,185,129,0.35)', borderRadius:16, padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                        <div style={{ fontSize:24 }}>⏳</div>
+                        <div>
+                          <div style={{ fontWeight:700, color:'#34d399', fontSize:14 }}>Payment Under Review — {o.tracking_code}</div>
+                          <div style={{ fontSize:12, color:'rgba(241,245,249,0.55)', marginTop:2 }}>You've submitted your payment of <strong style={{color:'#34d399'}}>{o.total_price} ETB</strong>. Waiting for admin confirmation.</div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+
                 return (
                 <motion.div key={`alert-${o.id}`} initial={{ opacity:0, y:-10 }} animate={{ opacity:1, y:0 }}
                   style={{ background:'rgba(245,158,11,0.08)', border:'2px solid rgba(245,158,11,0.35)', borderRadius:16, padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
@@ -157,10 +174,13 @@ export default function StudentDashboard() {
               )})}
 
               {orders.map(o => {
-                const isPaymentPending = o.status === 'ready' && payments.some(p => p.order_id === o.id && (p.status === 'pending' || p.status === 'rejected'));
+                const pendingPayment = payments.find(p => p.order_id === o.id && (p.status === 'pending' || p.status === 'rejected'));
+                const isPaymentPending = !!pendingPayment;
+                const isUnpaid = isPaymentPending && (pendingPayment.payment_method === 'unpaid' || pendingPayment.status === 'rejected');
+
                 return (
                 <motion.div key={o.id} initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }}
-                  style={{ background: isPaymentPending ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.03)', border: isPaymentPending ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+                  style={{ background: isPaymentPending && isUnpaid ? 'rgba(245,158,11,0.04)' : 'rgba(255,255,255,0.03)', border: isPaymentPending && isUnpaid ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(255,255,255,0.06)', borderRadius:16, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
                   <div>
                     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
                       <span style={{ fontWeight:700, color:'#f1f5f9', fontSize:14 }}>{o.tracking_code}</span>
@@ -169,7 +189,7 @@ export default function StudentDashboard() {
                     <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)' }}>{o.item_count} items · {o.total_price} ETB · {new Date(o.created_at).toLocaleDateString()}</div>
                   </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    {isPaymentPending && (
+                    {isPaymentPending && isUnpaid && (
                       <button onClick={() => setShowPay(o)}
                         style={{ padding:'8px 16px', borderRadius:10, background:'rgba(245,158,11,0.15)', color:'#fbbf24', border:'1px solid rgba(245,158,11,0.3)', fontWeight:700, fontSize:12, cursor:'pointer' }}>
                         💳 Pay Now

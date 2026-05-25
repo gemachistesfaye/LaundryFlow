@@ -225,7 +225,7 @@ exports.requestPayment = async (req, res) => {
         order_id: order_id,
         amount: orderData.total_price,
         status: 'pending',
-        payment_method: 'telebirr' // Default or placeholder
+        payment_method: 'unpaid'
       }]);
       
     if (paymentError) throw paymentError;
