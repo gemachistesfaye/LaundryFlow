@@ -159,27 +159,38 @@ exports.initializeChapaCheckout = async (req, res) => {
     const tx_ref = `WASH-${payment_id}-${Date.now()}`;
     const return_url = `http://localhost:5173/student/dashboard?verify_tx=${tx_ref}`;
 
-    const response = await fetch('https://api.chapa.co/v1/transaction/initialize', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.CHAPA_SECRET_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        amount: amount.toString(),
-        currency: 'ETB',
-        email: email,
-        first_name: firstName,
-        last_name: lastName,
-        tx_ref: tx_ref,
-        callback_url: return_url,
-        return_url: return_url,
-        customization: { title: 'Smart Wash Hub Payment', description: 'Payment for Laundry Order' }
-      })
+        // Debug: ensure secret key is present
+    console.log('🔑 CHAPA secret key present:', !!process.env.CHAPA_SECRET_KEY);
+    // Log payload sent to Chapa for troubleshooting
+    console.log('📦 Chapa checkout payload:', {
+      amount: amount.toString(),
+      currency: 'ETB',
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      tx_ref,
+      callback_url: return_url,
+      return_url,
+      customization: { title: 'Smart Wash Hub Payment', description: 'Payment for Laundry Order' }
     });
+    console.log('Chapa HTTP status:', response.status, response.statusText, 'ok:', response.ok);
+    const rawBody = await response.text();
+    let chapaData;
+    try {
+      chapaData = JSON.parse(rawBody);
+    } catch (_) {
+      // Not JSON – keep raw
+      chapaData = { status: 'error', message: rawBody };
+    }
 
-    const chapaData = await response.json();
-    if (chapaData.status !== 'success') throw new Error(chapaData.message || 'Chapa init failed');
+    console.log('Chapa raw response:', rawBody);
+    console.log('Parsed Chapa data:', chapaData);
+
+    if (!response.ok || chapaData.status !== 'success') {
+      const errMsg = chapaData.message?.error?.message || chapaData.message || 'Chapa init failed';
+      console.error('Chapa init failed:', errMsg);
+      return res.status(500).json({ success: false, message: errMsg, raw: rawBody });
+    }
 
     res.json({ success: true, checkout_url: chapaData.data.checkout_url });
   } catch (error) {
