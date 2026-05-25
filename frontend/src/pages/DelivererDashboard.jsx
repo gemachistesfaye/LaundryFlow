@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Truck, CheckCircle, Clock, MapPin, Navigation, Phone, ChevronRight, X } from 'lucide-react';
+import { Truck, CheckCircle, Clock, MapPin, Navigation, Phone, ChevronRight, X, BarChart3, Settings } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { getDeliveryTasks, acceptDeliveryTask, completeDelivery } from '../services/api';
@@ -16,6 +17,9 @@ const Badge = ({ status }) => (
 
 export default function DelivererDashboard() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab') || 'overview';
+
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -54,26 +58,47 @@ export default function DelivererDashboard() {
   const active = tasks.filter(t => t.status !== 'pending' && t.status !== 'delivered').length;
   const done = tasks.filter(t => t.status === 'delivered').length;
 
-  return (
-    <DashboardLayout title="Delivery Panel" activeTab="Dashboard">
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:16, marginBottom:28 }}>
-        {[
-          { icon: Clock, label:'Available Tasks', value: pending, color:'#fbbf24' },
-          { icon: Truck, label:'My Deliveries', value: active, color:'#6366f1' },
-          { icon: CheckCircle, label:'Completed', value: done, color:'#10b981' },
-        ].map((s, i) => (
-          <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:18, padding:'20px', display:'flex', alignItems:'center', gap:14 }}>
-            <div style={{ width:42, height:42, borderRadius:12, background:`${s.color}18`, border:`1px solid ${s.color}25`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <s.icon size={18} color={s.color} />
-            </div>
-            <div>
-              <div style={{ fontSize:24, fontWeight:800, color:'#f1f5f9' }}>{s.value}</div>
-              <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)', fontWeight:500 }}>{s.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+  const tabLabelMap = { overview: 'Dashboard Overview', deliveries: 'My Deliveries', performance: 'My Performance', settings: 'Account Settings' };
 
+  return (
+    <DashboardLayout title={tabLabelMap[tab] || 'Delivery Panel'} activeTab={tabLabelMap[tab] || 'Dashboard'}>
+      {tab === 'overview' && (
+        <div style={{ display:'flex', flexDirection:'column', gap: 24 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:16 }}>
+            {[
+              { icon: Clock, label:'Available Tasks', value: pending, color:'#fbbf24' },
+              { icon: Truck, label:'My Deliveries', value: active, color:'#6366f1' },
+              { icon: CheckCircle, label:'Completed', value: done, color:'#10b981' },
+            ].map((s, i) => (
+              <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:18, padding:'20px', display:'flex', alignItems:'center', gap:14 }}>
+                <div style={{ width:42, height:42, borderRadius:12, background:`${s.color}18`, border:`1px solid ${s.color}25`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <s.icon size={18} color={s.color} />
+                </div>
+                <div>
+                  <div style={{ fontSize:24, fontWeight:800, color:'#f1f5f9' }}>{s.value}</div>
+                  <div style={{ fontSize:12, color:'rgba(241,245,249,0.4)', fontWeight:500 }}>{s.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:20, padding:24 }}>
+            <h2 style={{ fontSize:15, fontWeight:700, color:'#f1f5f9', marginBottom:16 }}>Recent Tasks</h2>
+            {tasks.slice(0, 3).map(t => (
+               <div key={t.id} style={{ display:'flex', justifyContent:'space-between', padding:'12px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                 <div>
+                   <div style={{ color:'#f1f5f9', fontSize:14, fontWeight:600 }}>{t.tracking_code}</div>
+                   <div style={{ color:'rgba(241,245,249,0.5)', fontSize:12 }}>{t.student_name}</div>
+                 </div>
+                 <Badge status={t.status} />
+               </div>
+            ))}
+            {tasks.length === 0 && <div style={{ color:'rgba(241,245,249,0.3)', fontSize:13 }}>No recent tasks.</div>}
+          </div>
+        </div>
+      )}
+
+      {tab === 'deliveries' && (
       <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:20, padding:24 }}>
         <h2 style={{ fontSize:16, fontWeight:700, color:'#f1f5f9', marginBottom:20 }}>
           <Truck size={16} style={{ display:'inline', marginRight:8, color:'#818cf8' }} />Delivery Tasks
@@ -123,6 +148,44 @@ export default function DelivererDashboard() {
           </div>
         )}
       </div>
+      )}
+
+      {tab === 'performance' && (
+        <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:20, padding:32, textAlign:'center' }}>
+          <BarChart3 size={48} color="#8b5cf6" style={{ margin:'0 auto 16px', display:'block', opacity:0.8 }} />
+          <h2 style={{ fontSize:20, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Performance Metrics</h2>
+          <p style={{ color:'rgba(241,245,249,0.6)', fontSize:14, maxWidth:400, margin:'0 auto 24px' }}>
+            Track your efficiency, view completed delivery histories, and see your ratings. This feature is being finalized and will be available soon!
+          </p>
+          <div style={{ display:'flex', justifyContent:'center', gap:24 }}>
+             <div style={{ background:'rgba(16,185,129,0.1)', padding:'16px 24px', borderRadius:12, border:'1px solid rgba(16,185,129,0.2)' }}>
+                <div style={{ fontSize:24, fontWeight:800, color:'#10b981' }}>{done}</div>
+                <div style={{ fontSize:12, color:'rgba(16,185,129,0.7)' }}>Completed Deliveries</div>
+             </div>
+             <div style={{ background:'rgba(99,102,241,0.1)', padding:'16px 24px', borderRadius:12, border:'1px solid rgba(99,102,241,0.2)' }}>
+                <div style={{ fontSize:24, fontWeight:800, color:'#818cf8' }}>100%</div>
+                <div style={{ fontSize:12, color:'rgba(99,102,241,0.7)' }}>On-Time Rate</div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:20, padding:32 }}>
+          <h2 style={{ fontSize:18, fontWeight:700, color:'#f1f5f9', marginBottom:20 }}>Account Settings</h2>
+          <div style={{ display:'flex', flexDirection:'column', gap:16, maxWidth:500 }}>
+             <div>
+               <label style={{ fontSize:13, color:'rgba(241,245,249,0.5)', display:'block', marginBottom:6 }}>Full Name</label>
+               <input disabled type="text" value={user.full_name} style={{ width:'100%', padding:'12px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#f1f5f9' }} />
+             </div>
+             <div>
+               <label style={{ fontSize:13, color:'rgba(241,245,249,0.5)', display:'block', marginBottom:6 }}>Username</label>
+               <input disabled type="text" value={user.username} style={{ width:'100%', padding:'12px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, color:'#f1f5f9' }} />
+             </div>
+             <p style={{ fontSize:12, color:'rgba(241,245,249,0.4)', marginTop:12 }}>Contact the administrator to change your personal details or password.</p>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, padding:'14px 20px', borderRadius:14, fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:10, boxShadow:'0 20px 60px rgba(0,0,0,0.5)', background: toast.type==='success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border:`1px solid ${toast.type==='success'?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'}`, color: toast.type==='success' ? '#6ee7b7' : '#fca5a5' }}>
